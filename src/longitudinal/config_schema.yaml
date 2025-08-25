@@ -1,0 +1,62 @@
+# Longitudinal Analysis Configuration Schema
+# This file defines the structure and default values for longitudinal analysis
+
+# Patient and analysis identification
+patient_id: "CRUK0044"  # Patient identifier
+analysis_mode: "fixed"  # Options: "dynamic", "fixed", "both"
+
+# Input file paths
+input_files:
+  aggregation_dir: "/path/to/aggregation_results"  # Directory containing tree distributions
+  ssm_file: "/path/to/ssm.txt"  # SSM file with tissue mutation data
+  longitudinal_data: "/path/to/longitudinal_data.csv"  # ddPCR longitudinal data
+  # Base directory of the TracerX-MP repository
+  code_dir: "/path/to/tracerx-mp"
+
+# Output configuration
+output:
+  base_dir: "/path/to/output"  # Base output directory
+  create_subdirs: true  # Whether to create analysis-specific subdirectories
+
+# Analysis parameters
+parameters:
+  n_markers: 2  # Number of markers for dynamic selection
+  read_depth: 90000  # Expected read depth for ddPCR
+  method: "phylowgs"  # Phylogenetic method
+  lambda1: 0.0  # Weight for fraction-based objective (0.0 = ignore fractions)
+  lambda2: 1.0  # Weight for structure-based objective (1.0 = focus on tree structure)
+  focus_sample: 0  # Sample index for marker selection
+  track_clone_freq: true  # Enable clone frequency tracking and visualization
+
+# Fixed marker specification (for fixed/both modes)
+fixed_markers:
+  # List of gene identifiers with full genomic coordinates
+  - "DLG2_11_83544685_T>A"
+  - "GPR65_14_88477948_G>T"
+  - "C12orf74_12_93100715_G>T"
+  - "CSMD1_8_2975974_G>T"
+  - "OR51D1_11_4661941_G>T"
+
+# Optional filtering
+filtering:
+  timepoints: []  # Specific timepoints to analyze (empty = all)
+  # Example: ["2021-01-15", "2021-03-15", "2021-06-15"]
+
+# Output and visualization options
+visualization:
+  generate_plots: true  # Whether to generate plots
+  plot_format: "png"  # Options: "png", "pdf", "eps"
+  save_intermediate: false  # Save intermediate results for debugging
+
+# Validation and debugging
+validation:
+  validate_inputs: true  # Validate input data compatibility
+  debug_mode: false  # Enable debug logging and intermediate files
+
+# HPC/SLURM configuration (optional)
+hpc:
+  job_name: "longitudinal_analysis"
+  partition: "pool1"
+  cpus_per_task: 1
+  memory: "16G"
+  conda_env: "markers_env" 

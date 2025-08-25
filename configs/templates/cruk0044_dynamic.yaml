@@ -1,0 +1,61 @@
+# CRUK0044 Dynamic Marker Analysis Configuration
+# Longitudinal cancer evolution analysis using optimal marker selection at each timepoint
+
+# Patient and analysis identification
+patient_id: "CRUK0044"
+# Dynamic marker selection
+analysis_mode: "dynamic"
+
+# Input file paths - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
+input_files:
+  aggregation_dir: "/home/ssabata/patient_data/cruk0044/initial/aggregation_results/"
+  ssm_file: "/home/ssabata/tracerx-mp/data/input/ssm.txt"
+  longitudinal_data: "/home/ssabata/tracerx-mp/data/input/cruk0044_liquid.csv"
+  # Base directory of the TracerX-MP repository
+  code_dir: "/home/ssabata/tracerx-mp/"
+
+# Output configuration
+output:
+  base_dir: "/home/ssabata/patient_data/cruk0044/longitudinal/"
+  create_subdirs: true
+
+# Analysis parameters
+parameters:
+  # Number of markers to select at each timepoint
+  n_markers: 5
+  # Expected read depth for ddPCR analysis 
+  read_depth: 90000
+  method: "phylowgs"
+  # Weight for fraction-based objective (0.0 = ignore fractions)
+  lambda1: 0.0
+  # Weight for structure-based objective (1.0 = focus on tree structure)
+  lambda2: 1.0
+  focus_sample: 0
+  track_clone_freq: true  # Enable clone frequency tracking and visualization
+
+# Fixed markers - not used in dynamic mode but required for schema
+fixed_markers: []
+
+# Optional filtering (empty = analyze all timepoints)
+filtering:
+  timepoints: []
+
+# Output and visualization options
+visualization:
+  generate_plots: true
+  plot_format: "png"
+  save_intermediate: false
+
+# Validation and debugging
+validation:
+  validate_inputs: true
+  # Set to true for detailed debugging
+  debug_mode: false
+
+# HPC/SLURM configuration
+hpc:
+  job_name: "cruk0044_dynamic_longitudinal"
+  partition: "pool1"
+  cpus_per_task: 4
+  memory: "16G"
+  conda_env: "markers_env" 

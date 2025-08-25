@@ -1,0 +1,64 @@
+# CRUK0044 Fixed Marker Analysis Configuration
+# Longitudinal cancer evolution analysis using clinically specified markers
+
+# Patient and analysis identification
+patient_id: "CRUK0044"
+analysis_mode: "fixed"
+# Using fixed markers specified by clinical team
+
+# Input file paths - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
+input_files:
+  aggregation_dir: "/home/ssabata/patient_data/cruk0044/initial/aggregation_results/"
+  ssm_file: "/home/ssabata/tracerx-mp/data/ssm.txt"
+  longitudinal_data: "/home/ssabata/tracerx-mp/data/cruk0044_liquid.csv"
+  # Base directory of the TracerX-MP repository
+  code_dir: "/home/ssabata/tracerx-mp/"
+
+# Output configuration
+output:
+  base_dir: "/home/ssabata/patient_data/cruk0044/longitudinal_fixed/"
+  create_subdirs: true
+
+# Analysis parameters
+parameters:
+  # Number of fixed markers being tracked
+  n_markers: 5  
+  # Expected read depth for ddPCR analysis
+  read_depth: 90000  
+  method: "phylowgs"
+  # Weight for fraction-based objective (not used in fixed mode)
+  lambda1: 0.0  
+  # Weight for structure-based objective (not used in fixed mode)
+  lambda2: 1.0  
+  focus_sample: 0
+
+# Fixed markers - clinically specified genes with full genomic coordinates
+fixed_markers:
+  - "DLG2_11_83544685_T>A"
+  - "GPR65_14_88477948_G>T"
+  - "C12orf74_12_93100715_G>T"
+  - "CSMD1_8_2975974_G>T"
+  - "OR51D1_11_4661941_G>T"
+
+# Optional filtering (empty = analyze all timepoints)
+filtering:
+  timepoints: []
+
+# Output and visualization options
+visualization:
+  generate_plots: true
+  plot_format: "png"
+  save_intermediate: false
+
+# Validation and debugging
+validation:
+  validate_inputs: true
+  debug_mode: false  # Set to true for detailed debugging
+
+# HPC/SLURM configuration
+hpc:
+  job_name: "cruk0044_fixed_longitudinal"
+  partition: "pool1"
+  cpus_per_task: 1
+  memory: "16G"
+  conda_env: "markers_env" 

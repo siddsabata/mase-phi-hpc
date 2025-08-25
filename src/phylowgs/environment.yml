@@ -1,0 +1,15 @@
+name: phylowgs_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=2.7
+  - numpy
+  - scipy
+  - pandas
+  - pip
+  - gsl
+  - gcc
+  - make
+  - zip
+  - gzip 

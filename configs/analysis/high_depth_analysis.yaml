@@ -1,0 +1,92 @@
+# TracerX Marker Selection Pipeline - High-Depth Analysis Configuration
+# Intensive analysis configuration for comprehensive marker selection with high computational resources
+
+# Patient and analysis identification
+patient_id: "CRUK0044_hd"
+analysis_type: "high_depth"
+
+# Input files and directories - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
+input:
+  ssm_file: "/path/to/data/ssm.txt"
+  code_dir: "/path/to/tracerx-mp/"
+
+# Output configuration
+output:
+  base_dir: "/path/to/patient_data/CRUK0044_hd/"
+  create_subdirs: true
+  log_level: "INFO"
+
+# Step 1: Bootstrap configuration (increased for robustness)
+bootstrap:
+  num_bootstraps: 500      # Increased for more robust statistics
+  random_seed: null        # Random for maximum diversity
+
+# Step 2: PhyloWGS configuration (enhanced)
+phylowgs:
+  num_chains: 10           # More chains for better convergence
+  parallel_limit: 20       # Higher parallelism for faster completion
+
+# Step 3: Aggregation configuration
+aggregation:
+  method: "phylowgs"
+  generate_visualizations: true
+  sample_prefix: "Region"
+  custom_sample_names: []
+
+# Step 4: Marker selection configuration (comprehensive)
+marker_selection:
+  read_depth: 10000        # High read depth for sensitive detection
+  filter_strategy: "majority_high"  # More sophisticated filtering
+  filter_threshold: 0.95   # Stricter filtering for high quality
+  filter_samples: []
+  
+  # Optimization parameters (comprehensive)
+  optimization:
+    lambda1_values: [1.0, 0.5, 0.0]  # Test multiple weightings
+    lambda2_values: [0.0, 0.5, 1.0]  # Test multiple weightings
+    max_iterations: null              # Analyze all possible markers
+
+# HPC/SLURM configuration (high-performance)
+hpc:
+  bootstrap:
+    partition: "pool1"
+    cpus_per_task: 4         # More CPUs for parallel processing
+    memory: "16G"            # More memory for large datasets
+    walltime: "06:00:00"     # Longer time for more bootstraps
+    conda_env: "preprocess_env"
+  
+  phylowgs:
+    partition: "pool1"
+    cpus_per_task: 8         # High CPU for intensive computation
+    memory: "16G"            # High memory for complex trees
+    walltime: "24:00:00"     # Long time for thorough analysis
+    conda_env: "phylowgs_env"
+    array_throttle: 20       # Higher parallelism
+  
+  aggregation:
+    partition: "pool1"
+    cpus_per_task: 2
+    memory: "32G"            # High memory for large aggregations
+    walltime: "08:00:00"     # Longer for complex visualizations
+    conda_env: "aggregation_env"
+  
+  marker_selection:
+    partition: "pool1"
+    cpus_per_task: 4         # More CPUs for optimization
+    memory: "32G"            # High memory for complex optimization
+    walltime: "12:00:00"     # Long time for comprehensive analysis
+    conda_env: "markers_env"
+    modules: ["gurobi1102"]
+
+# Validation and debugging
+validation:
+  validate_inputs: true
+  check_dependencies: true
+  debug_mode: false
+
+# Pipeline orchestration
+orchestration:
+  run_sequential: false
+  cleanup_temp_files: true
+  save_intermediate: true
+  email_notifications: false  # Set to email for long-running jobs

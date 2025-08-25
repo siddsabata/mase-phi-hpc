@@ -1,0 +1,92 @@
+# TracerX Marker Selection Pipeline - Test Analysis Configuration
+# Rapid testing configuration for development and validation using 5-mutation subset
+
+# Patient and analysis identification
+patient_id: "CRUK0044_test"
+analysis_type: "test"
+
+# Input files and directories - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
+input:
+  ssm_file: "/home/ssabata/tracerx-mp/data/ssm_subset.txt"  # 5-mutation subset for testing
+  code_dir: "/home/ssabata/tracerx-mp/"
+
+# Output configuration  
+output:
+  base_dir: "/home/ssabata/patient_data/cruk0044_test/"
+  create_subdirs: true
+  log_level: "DEBUG"  # More verbose logging for testing
+
+# Step 1: Bootstrap configuration (reduced for testing)
+bootstrap:
+  num_bootstraps: 20   # Reduced for faster testing
+  random_seed: 42      # Fixed seed for reproducible test results
+
+# Step 2: PhyloWGS configuration (minimal for testing)
+phylowgs:
+  num_chains: 3        # Reduced for faster testing
+  parallel_limit: 5    # Lower parallelism for testing
+
+# Step 3: Aggregation configuration
+aggregation:
+  method: "phylowgs"
+  generate_visualizations: true
+  sample_prefix: "CRUK0044_test"
+  custom_sample_names: ["Primary", "Met1", "Met2"]  # Example custom names
+
+# Step 4: Marker selection configuration
+marker_selection:
+  read_depth: 1000     # Lower for testing
+  filter_strategy: "any_high"
+  filter_threshold: 0.8  # More permissive for testing with fewer mutations
+  filter_samples: []
+  
+  # Optimization parameters (simplified for testing)
+  optimization:
+    lambda1_values: [1.0]    # Test only one configuration
+    lambda2_values: [0.0]    # Test only one configuration  
+    max_iterations: 5        # Limit iterations for faster testing
+
+# HPC/SLURM configuration (reduced resources for testing)
+hpc:
+  bootstrap:
+    partition: "pool1"
+    cpus_per_task: 1         # Reduced for testing
+    memory: "4G"             # Reduced for testing
+    walltime: "00:30:00"     # Shorter for testing
+    conda_env: "preprocess_env"
+  
+  phylowgs:
+    partition: "pool1"
+    cpus_per_task: 2         # Reduced for testing
+    memory: "4G"             # Reduced for testing
+    walltime: "02:00:00"     # Shorter for testing
+    conda_env: "phylowgs_env"
+    array_throttle: 5        # Lower for testing
+  
+  aggregation:
+    partition: "pool1"
+    cpus_per_task: 1
+    memory: "8G"             # Reduced for testing
+    walltime: "01:00:00"     # Shorter for testing
+    conda_env: "aggregation_env"
+  
+  marker_selection:
+    partition: "pool1"
+    cpus_per_task: 1
+    memory: "8G"             # Reduced for testing
+    walltime: "01:00:00"     # Shorter for testing
+    conda_env: "markers_env"
+    modules: ["gurobi1102"]
+
+# Validation and debugging (enhanced for testing)
+validation:
+  validate_inputs: true
+  check_dependencies: true
+  debug_mode: true          # Enable debug mode for testing
+
+# Pipeline orchestration
+orchestration:
+  run_sequential: false
+  cleanup_temp_files: false  # Keep files for debugging during testing
+  save_intermediate: true
+  email_notifications: false

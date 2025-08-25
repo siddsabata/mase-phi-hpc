@@ -1,0 +1,93 @@
+# TracerX Marker Selection Pipeline - Standard Analysis Configuration
+# Complete configuration for steps 1-4: Bootstrap → PhyloWGS → Aggregation → Marker Selection
+
+# Patient and analysis identification
+patient_id: "CRUK0044"
+analysis_type: "standard"  # Options: standard, test, high_depth
+
+# Input files and directories - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
+input:
+  ssm_file: "/home/ssabata/tracerx-mp/data/ssm.txt"
+  code_dir: "/home/ssabata/tracerx-mp/"  # Base directory of the TracerX-MP repository
+
+# Output configuration
+output:
+  base_dir: "/home/ssabata/patient_data/cruk0044_full_test/"  # Patient base directory
+  create_subdirs: true
+  log_level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
+
+# Step 1: Bootstrap configuration
+bootstrap:
+  num_bootstraps: 100  # Number of bootstrap samples to generate
+  random_seed: 42    # Set to integer for reproducible results, null for random
+
+# Step 2: PhyloWGS configuration  
+phylowgs:
+  num_chains: 5      # Number of MCMC chains to run
+  parallel_limit: 50  # Maximum number of parallel jobs in SLURM array
+
+# Step 3: Aggregation configuration
+aggregation:
+  method: "phylowgs"
+  generate_visualizations: true
+  sample_prefix: "Region"  # Prefix for sample names in visualizations
+  custom_sample_names: []  # Optional: ["Tumor_Primary", "Tumor_Met1", "Tumor_Met2"]
+
+# Step 4: Marker selection configuration
+marker_selection:
+  read_depth: 1500
+  filter_strategy: "any_high"  # Options: any_high, all_high, majority_high, specific_samples
+  filter_threshold: 0.9        # VAF threshold for filtering
+  filter_samples: []           # For specific_samples strategy: [0, 1]
+  
+  # Optimization parameters
+  optimization:
+    lambda1_values: [1.0, 0.0]  # Fraction vs structure weighting
+    lambda2_values: [0.0, 1.0]  # Corresponds to lambda1_values
+    max_iterations: null        # null = all possible markers, or specify max number
+
+# HPC/SLURM configuration
+hpc:
+  # Step-specific resource allocation
+  bootstrap:
+    partition: "pool1"
+    cpus_per_task: 2
+    memory: "16G"
+    walltime: "02:00:00"
+    conda_env: "preprocess_env"
+  
+  phylowgs:
+    partition: "pool1" 
+    cpus_per_task: 5
+    memory: "8G"
+    walltime: "12:00:00"
+    conda_env: "phylowgs_env"
+    array_throttle: 50  # %10 in SLURM array syntax
+  
+  aggregation:
+    partition: "pool1"
+    cpus_per_task: 1  
+    memory: "16G"
+    walltime: "04:00:00"
+    conda_env: "aggregation_env"
+  
+  marker_selection:
+    partition: "pool1"
+    cpus_per_task: 1
+    memory: "16G" 
+    walltime: "06:00:00"
+    conda_env: "markers_env"
+    modules: ["gurobi1102"]  # Required modules to load
+
+# Validation and debugging
+validation:
+  validate_inputs: true
+  check_dependencies: true
+  debug_mode: false
+
+# Pipeline orchestration
+orchestration:
+  run_sequential: false    # If true, run steps sequentially instead of using dependencies
+  cleanup_temp_files: true
+  save_intermediate: true
+  email_notifications: false  # Set to email address for job completion notifications

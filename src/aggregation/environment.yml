@@ -1,0 +1,17 @@
+name: aggregation_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - scipy
+  - ete3
+  - matplotlib
+  - seaborn
+  - pip
+  - graphviz
+  - python-graphviz
+  - pathlib
+  - lxml  # required by ete3

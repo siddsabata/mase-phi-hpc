@@ -1,0 +1,13 @@
+date,gene,mutant_droplets,total_droplets,notes
+2024-01-15,GPR65_14_88477948_G>T,45,1200,Monthly monitoring timepoint 1
+2024-01-15,GLIPR1L1_12_75728663_C>A,23,980,Monthly monitoring timepoint 1
+2024-01-15,TMEM176B_7_150490198_C>A,38,1150,Monthly monitoring timepoint 1
+2024-02-15,GPR65_14_88477948_G>T,52,1180,Monthly monitoring timepoint 2
+2024-02-15,GLIPR1L1_12_75728663_C>A,31,1020,Monthly monitoring timepoint 2
+2024-02-15,TMEM176B_7_150490198_C>A,44,1090,Monthly monitoring timepoint 2
+2024-03-15,GPR65_14_88477948_G>T,68,1250,Monthly monitoring timepoint 3
+2024-03-15,GLIPR1L1_12_75728663_C>A,42,1100,Monthly monitoring timepoint 3
+2024-03-15,TMEM176B_7_150490198_C>A,55,1200,Monthly monitoring timepoint 3
+2024-04-15,GPR65_14_88477948_G>T,78,1300,Monthly monitoring timepoint 4
+2024-04-15,GLIPR1L1_12_75728663_C>A,58,1150,Monthly monitoring timepoint 4
+2024-04-15,TMEM176B_7_150490198_C>A,72,1280,Monthly monitoring timepoint 4 
