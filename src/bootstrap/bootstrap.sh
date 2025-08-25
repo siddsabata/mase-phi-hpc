@@ -45,14 +45,15 @@ if [ ! -f "$INPUT_SSM_FILE" ]; then
     exit 1
 fi
 
-# --- Environment Activation ---
-echo "Activating conda environment: preprocess_env"
-source ~/miniconda3/bin/activate preprocess_env
+# --- Environment Setup ---
+echo "Setting up uv environment..."
+cd "$CODE_DIR"
+uv sync
 if [ $? -ne 0 ]; then
-    echo "Error: Failed to activate conda environment 'preprocess_env'. Exiting."
+    echo "Error: Failed to sync uv environment. Exiting."
     exit 1
 fi
-echo "Conda environment preprocess_env activated successfully."
+echo "uv environment synced successfully."
 
 # --- Run Bootstrap Script ---
 echo "Running step1_bootstrap.py..."
@@ -69,7 +70,7 @@ if [ ! -f "$BOOTSTRAP_PY_PATH" ]; then
     exit 1
 fi
 
-python3 "$BOOTSTRAP_PY_PATH" \
+uv run python "$BOOTSTRAP_PY_PATH" \
     -i "$INPUT_SSM_FILE" \
     -o "$BOOTSTRAP_DATA_DIR" \
     -n "$NUM_BOOTSTRAPS"

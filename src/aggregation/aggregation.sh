@@ -51,14 +51,15 @@ echo "Code Directory: ${CODE_DIR}"
 echo "Number of Bootstraps (hardcoded): ${NUM_BOOTSTRAPS}"
 echo "---------------------------------------"
 
-# --- Environment Activation ---
-echo "Activating conda environment: aggregation_env"
-source ~/miniconda3/bin/activate aggregation_env
+# --- Environment Setup ---
+echo "Setting up uv environment..."
+cd "$CODE_DIR"
+uv sync
 if [ $? -ne 0 ]; then
-    echo "Error: Failed to activate conda environment 'aggregation_env'. Exiting."
+    echo "Error: Failed to sync uv environment. Exiting."
     exit 1
 fi
-echo "Conda environment activated."
+echo "uv environment synced successfully."
 
 # --- Script Paths and Execution ---
 # Use the absolute path to the step3_aggregate.py script based on the provided code directory
@@ -78,7 +79,7 @@ echo "Running Python aggregation script: $PROCESS_SCRIPT_PATH"
 echo "Input bootstrap data from: $BOOTSTRAP_PARENT_DIR"
 echo "Output aggregation results to: $OUTPUT_DIR"
 
-python "$PROCESS_SCRIPT_PATH" "${PATIENT_ID}" \
+uv run python "$PROCESS_SCRIPT_PATH" "${PATIENT_ID}" \
     --bootstrap-list $bootstrap_list \
     --bootstrap-parent-dir "${BOOTSTRAP_PARENT_DIR}" \
     --output-dir "${OUTPUT_DIR}"

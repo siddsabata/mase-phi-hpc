@@ -1,4 +1,125 @@
+# OS Files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE/Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.vim/
+.emacs.d/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Python Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# uv (keep uv.lock - it should be committed!)
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Scientific Computing
+*.npy
+*.npz
+*.pkl
+*.pickle
+
+# R (if any R scripts exist)
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+
+# Temporary Files
+*.tmp
+*.temp
+*.log
+*.out
+*.err
+
+# SLURM Output Files
+slurm-*.out
+slurm-*.err
+*.o[0-9]*
+*.e[0-9]*
+
+# Pipeline Output Directories
+logs/
+output/
+results/
+**/logs/
+**/output/
+**/results/
+**/bootstraps/
+**/aggregation_results/
+**/markers/
+**/longitudinal/
+
+# Data Files (typically large, store elsewhere)
+*.csv
+*.tsv
+*.txt
+*.gz
+*.zip
+*.tar
+*.tar.gz
+!requirements.txt
+!**/test*.txt
+!**/example*.txt
+
+# Conda Environments (don't commit actual environments)
+envs/
+.conda/
+
+# Project-specific (keep these from your original)
 CLAUDE.md
 CODE_REVIEW_FINDINGS.md
 data/example_io/
+
+# PhyloWGS Tool Installation (ignore the cloned tool, keep our wrapper scripts)
+src/phylowgs/phylowgs/
+
+# Gurobi License Files
+gurobi.lic
+*.lic
+
+# Backup Files
+*.bak
+*.backup
+*~

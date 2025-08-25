@@ -83,19 +83,19 @@ echo "Filter Samples: ${FILTER_SAMPLES}"
 echo "Log Directory: ${LOG_DIR}"
 echo "---------------------------------------"
 
-# --- Environment Activation ---
-# Assuming the same environment as aggregation.sh, or a suitable one for run_data.py
-echo "Activating conda environment: markers_env" 
-source ~/miniconda3/bin/activate markers_env
+# --- Environment Setup ---
+echo "Setting up uv environment..."
+cd "$CODE_DIR"
+uv sync
 if [ $? -ne 0 ]; then
-    echo "Error: Failed to activate conda environment 'markers_env'. Exiting."
+    echo "Error: Failed to sync uv environment. Exiting."
     exit 1
 fi
-echo "Conda environment activated."
+echo "uv environment synced successfully."
 
 # Verify Gurobi is accessible from Python
 echo "Verifying Gurobi is accessible from Python..."
-python -c "import gurobipy; print(f'Gurobi version: {gurobipy.gurobi.version()}')"
+uv run python -c "import gurobipy; print(f'Gurobi version: {gurobipy.gurobi.version()}')"
 if [ $? -ne 0 ]; then
     echo "Error: Failed to import gurobipy or access Gurobi. Check that the module is properly loaded and gurobipy is installed."
     exit 1
@@ -118,7 +118,7 @@ fi
 echo "Running multi-sample Python marker selection script: $MARKER_SCRIPT_PATH"
 
 # Build the command with required arguments using shorthand options
-CMD="python \"$MARKER_SCRIPT_PATH\" \"${PATIENT_ID}\" \
+CMD="uv run python \"$MARKER_SCRIPT_PATH\" \"${PATIENT_ID}\" \
     -a \"${AGGREGATION_DIR}\" \
     -s \"${SSM_FILE}\" \
     -r \"${READ_DEPTH}\" \
