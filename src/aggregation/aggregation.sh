@@ -52,14 +52,8 @@ echo "Number of Bootstraps (hardcoded): ${NUM_BOOTSTRAPS}"
 echo "---------------------------------------"
 
 # --- Environment Setup ---
-echo "Setting up uv environment..."
+echo "Using conda environment mase_phi_hpc..."
 cd "$CODE_DIR"
-uv sync
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to sync uv environment. Exiting."
-    exit 1
-fi
-echo "uv environment synced successfully."
 
 # --- Script Paths and Execution ---
 # Use the absolute path to the step3_aggregate.py script based on the provided code directory
@@ -79,7 +73,7 @@ echo "Running Python aggregation script: $PROCESS_SCRIPT_PATH"
 echo "Input bootstrap data from: $BOOTSTRAP_PARENT_DIR"
 echo "Output aggregation results to: $OUTPUT_DIR"
 
-uv run python "$PROCESS_SCRIPT_PATH" "${PATIENT_ID}" \
+conda run -n mase_phi_hpc python "$PROCESS_SCRIPT_PATH" "${PATIENT_ID}" \
     --bootstrap-list $bootstrap_list \
     --bootstrap-parent-dir "${BOOTSTRAP_PARENT_DIR}" \
     --output-dir "${OUTPUT_DIR}"

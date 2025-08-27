@@ -46,14 +46,8 @@ if [ ! -f "$INPUT_SSM_FILE" ]; then
 fi
 
 # --- Environment Setup ---
-echo "Setting up uv environment..."
+echo "Using conda environment mase_phi_hpc..."
 cd "$CODE_DIR"
-uv sync
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to sync uv environment. Exiting."
-    exit 1
-fi
-echo "uv environment synced successfully."
 
 # --- Run Bootstrap Script ---
 echo "Running step1_bootstrap.py..."
@@ -70,7 +64,7 @@ if [ ! -f "$BOOTSTRAP_PY_PATH" ]; then
     exit 1
 fi
 
-uv run python "$BOOTSTRAP_PY_PATH" \
+conda run -n mase_phi_hpc python "$BOOTSTRAP_PY_PATH" \
     -i "$INPUT_SSM_FILE" \
     -o "$BOOTSTRAP_DATA_DIR" \
     -n "$NUM_BOOTSTRAPS"

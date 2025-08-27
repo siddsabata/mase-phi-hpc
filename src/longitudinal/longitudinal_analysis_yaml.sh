@@ -121,18 +121,12 @@ echo "Error file: $ERR_FILE"
 echo "---------------------------------------"
 
 # --- Environment Setup ---
-echo "Setting up uv environment..."
+echo "Using conda environment mase_phi_hpc..."
 cd "$CODE_DIR"
-uv sync
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to sync uv environment. Exiting."
-    exit 1
-fi
-echo "uv environment synced successfully."
 
 # Verify Gurobi is accessible from Python
 echo "Verifying Gurobi is accessible from Python..."
-uv run python -c "import gurobipy; print(f'Gurobi version: {gurobipy.gurobi.version()}')"
+conda run -n mase_phi_hpc python -c "import gurobipy; print(f'Gurobi version: {gurobipy.gurobi.version()}')"
 if [ $? -ne 0 ]; then
     echo "Error: Failed to import gurobipy or access Gurobi."
     exit 1
@@ -141,7 +135,7 @@ echo "Gurobi verification successful."
 
 # Verify required Python packages
 echo "Verifying required Python packages..."
-uv run python -c "import pandas, numpy, matplotlib, yaml; print('Core packages: OK')"
+conda run -n mase_phi_hpc python -c "import pandas, numpy, matplotlib, yaml; print('Core packages: OK')"
 if [ $? -ne 0 ]; then
     echo "Error: Failed to import required Python packages."
     exit 1
@@ -164,7 +158,7 @@ echo "Running longitudinal analysis with YAML configuration (v2.0)..."
 echo "Command: python $LONGITUDINAL_SCRIPT_PATH --config $CONFIG_FILE $ADDITIONAL_FLAGS"
 
 # Execute the Python script with YAML configuration
-uv run python "$LONGITUDINAL_SCRIPT_PATH" --config "$CONFIG_FILE" $ADDITIONAL_FLAGS
+conda run -n mase_phi_hpc python "$LONGITUDINAL_SCRIPT_PATH" --config "$CONFIG_FILE" $ADDITIONAL_FLAGS
 
 SCRIPT_EXIT_CODE=$?
 if [ $SCRIPT_EXIT_CODE -eq 0 ]; then

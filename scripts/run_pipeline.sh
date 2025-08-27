@@ -7,14 +7,9 @@
 
 set -e  # Exit on any error
 
-# --- Setup uv environment for YAML parsing ---
-echo "Setting up uv environment for YAML parsing..."
+# --- Setup conda environment for YAML parsing ---
+echo "Using conda environment for YAML parsing..."
 cd "$( dirname "${BASH_SOURCE[0]}" )/.."  # Change to repo root
-uv sync
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to sync uv environment for YAML parsing. Exiting."
-    exit 1
-fi
 
 # --- Input Validation ---
 if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
@@ -133,7 +128,7 @@ if __name__ == "__main__":
 EOF
 
 # Parse configuration and source the variables
-uv run python /tmp/parse_config.py "$CONFIG_FILE" > "$TEMP_VARS_FILE"
+conda run -n mase_phi_hpc python /tmp/parse_config.py "$CONFIG_FILE" > "$TEMP_VARS_FILE"
 if [ $? -ne 0 ]; then
     echo "Error: Failed to parse configuration file"
     rm -f "$TEMP_VARS_FILE" /tmp/parse_config.py

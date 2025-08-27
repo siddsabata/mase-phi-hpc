@@ -1,0 +1,31 @@
+name: mase_phi_hpc
+channels:
+  - conda-forge
+  - defaults
+  - gurobi
+dependencies:
+  - python=3.11
+  # Core scientific computing
+  - numpy
+  - pandas
+  - scipy
+  
+  # Visualization
+  - matplotlib
+  - seaborn
+  
+  # Tree analysis and phylogenetics
+  - ete3
+  - lxml  # required by ete3
+  
+  # Graph visualization
+  - graphviz
+  - python-graphviz
+  
+  # Machine learning and optimization
+  - scikit-learn
+  - gurobi=11.0.2
+  
+  # Configuration and utilities
+  - pyyaml
+  - pip
