@@ -15,13 +15,13 @@ else
     exit 1
 fi
 
-# Install Gurobi separately (not available via PyPI)
-echo "Installing gurobipy for optimization stages..."
-uv pip install gurobipy
+# Install packages not available in uv registry
+echo "Installing additional packages via pip (gurobipy==11.0.2, python-graphviz)..."
+uv pip install gurobipy==11.0.2 python-graphviz
 if [ $? -eq 0 ]; then
-    echo "✓ gurobipy installed successfully"
+    echo "✓ Additional packages installed successfully"
 else
-    echo "✗ gurobipy installation failed - you may need a Gurobi license"
+    echo "✗ Package installation failed"
     echo "  Note: Gurobi requires a license for optimization. Academic licenses available at gurobi.com"
 fi
 

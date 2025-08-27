@@ -19,11 +19,11 @@ dependencies = [
     
     # Graph visualization
     "graphviz",
-    "python-graphviz",
+    # Note: python-graphviz installed separately via pip after uv sync
     
     # Machine learning and optimization
     "scikit-learn",
-    # Note: gurobipy installed separately via pip after uv sync
+    # Note: gurobipy==11.0.2 installed separately via pip after uv sync
     
     # Configuration and utilities
     "pyyaml",
