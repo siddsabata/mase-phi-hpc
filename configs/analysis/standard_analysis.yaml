@@ -7,18 +7,18 @@ analysis_type: "standard"  # Options: standard, test, high_depth
 
 # Input files and directories - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
 input:
-  ssm_file: "/home/ssabata/tracerx-mp/data/ssm.txt"
-  code_dir: "/home/ssabata/tracerx-mp/"  # Base directory of the TracerX-MP repository
+  ssm_file: "/home/ssabata/mase-phi-hpc/data/ssm.txt"
+  code_dir: "/home/ssabata/mase-phi-hpc/"  # Base directory of the TracerX-MP repository
 
 # Output configuration
 output:
-  base_dir: "/home/ssabata/patient_data/cruk0044_full_test/"  # Patient base directory
+  base_dir: "/home/ssabata/patient_data/mamba_test/"  # Patient base directory
   create_subdirs: true
   log_level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
 
 # Step 1: Bootstrap configuration
 bootstrap:
-  num_bootstraps: 100  # Number of bootstrap samples to generate
+  num_bootstraps: 10  # Number of bootstrap samples to generate
   random_seed: 42    # Set to integer for reproducible results, null for random
 
 # Step 2: PhyloWGS configuration  
