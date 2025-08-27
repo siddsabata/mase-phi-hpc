@@ -15,6 +15,16 @@ else
     exit 1
 fi
 
+# Install Gurobi separately (not available via PyPI)
+echo "Installing gurobipy for optimization stages..."
+uv pip install gurobipy
+if [ $? -eq 0 ]; then
+    echo "✓ gurobipy installed successfully"
+else
+    echo "✗ gurobipy installation failed - you may need a Gurobi license"
+    echo "  Note: Gurobi requires a license for optimization. Academic licenses available at gurobi.com"
+fi
+
 # Create PhyloWGS conda environment (Python 2.7)
 echo "Creating PhyloWGS conda environment..."
 conda env create -f src/phylowgs/environment.yml

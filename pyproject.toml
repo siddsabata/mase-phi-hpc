@@ -23,8 +23,7 @@ dependencies = [
     
     # Machine learning and optimization
     "scikit-learn",
-    "gurobi>=11.0.0,<12.0.0",
-    "gurobipy",
+    # Note: gurobipy installed separately via pip after uv sync
     
     # Configuration and utilities
     "pyyaml",
