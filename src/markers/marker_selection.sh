@@ -84,18 +84,13 @@ echo "Log Directory: ${LOG_DIR}"
 echo "---------------------------------------"
 
 # --- Environment Setup ---
-echo "Setting up uv environment..."
+echo "Setting up conda environment..."
 cd "$CODE_DIR"
-uv sync
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to sync uv environment. Exiting."
-    exit 1
-fi
-echo "uv environment synced successfully."
+# No need to sync conda environment as it should already exist
 
 # Verify Gurobi is accessible from Python
 echo "Verifying Gurobi is accessible from Python..."
-uv run python -c "import gurobipy; print(f'Gurobi version: {gurobipy.gurobi.version()}')"
+conda run -n mase_phi_hpc python -c "import gurobipy; print(f'Gurobi version: {gurobipy.gurobi.version()}')"
 if [ $? -ne 0 ]; then
     echo "Error: Failed to import gurobipy or access Gurobi. Check that the module is properly loaded and gurobipy is installed."
     exit 1
@@ -118,7 +113,7 @@ fi
 echo "Running multi-sample Python marker selection script: $MARKER_SCRIPT_PATH"
 
 # Build the command with required arguments using shorthand options
-CMD="uv run python \"$MARKER_SCRIPT_PATH\" \"${PATIENT_ID}\" \
+CMD="conda run -n mase_phi_hpc python \"$MARKER_SCRIPT_PATH\" \"${PATIENT_ID}\" \
     -a \"${AGGREGATION_DIR}\" \
     -s \"${SSM_FILE}\" \
     -r \"${READ_DEPTH}\" \
