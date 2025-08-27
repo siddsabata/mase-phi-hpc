@@ -4,9 +4,9 @@ import json
 import numpy as np
 import argparse
 from pathlib import Path
-from step3_visualization import analyze_tree_distribution
-from step3_analyze import *
-from step3_optimize import *
+from visualization import analyze_tree_distribution
+from analyze import *
+from optimize import *
 import os
 
 def process_bootstrap_data(

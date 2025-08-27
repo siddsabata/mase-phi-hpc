@@ -80,9 +80,9 @@ echo
 
 # Check Python files
 echo "--- Checking Key Python Files ---"
-check_file "$ROOT_DIR/src/bootstrap/step1_bootstrap.py" "Bootstrap Python script"
-check_file "$ROOT_DIR/src/aggregation/step3_aggregate.py" "Aggregation Python script"
-check_file "$ROOT_DIR/src/markers/step4_run_data_multi_sample.py" "Markers Python script"
+check_file "$ROOT_DIR/src/bootstrap/bootstrap.py" "Bootstrap Python script"
+check_file "$ROOT_DIR/src/aggregation/aggregate.py" "Aggregation Python script"
+check_file "$ROOT_DIR/src/markers/run_data_multi_sample.py" "Markers Python script"
 check_file "$ROOT_DIR/src/longitudinal/longitudinal_main.py" "Longitudinal main Python script"
 echo
 

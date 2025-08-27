@@ -45,15 +45,15 @@ echo "Using conda environment mase_phi_hpc..."
 cd "$CODE_DIR"
 
 # --- Run Bootstrap Script ---
-echo "Running step1_bootstrap.py..."
+echo "Running bootstrap.py..."
 
-# Use the absolute path to the step1_bootstrap.py file based on the provided code directory
-BOOTSTRAP_PY_PATH="${CODE_DIR}/src/bootstrap/step1_bootstrap.py"
-echo "Using step1_bootstrap.py at: $BOOTSTRAP_PY_PATH"
+# Use the absolute path to the bootstrap.py file based on the provided code directory
+BOOTSTRAP_PY_PATH="${CODE_DIR}/src/bootstrap/bootstrap.py"
+echo "Using bootstrap.py at: $BOOTSTRAP_PY_PATH"
 
-# Verify the step1_bootstrap.py file exists
+# Verify the bootstrap.py file exists
 if [ ! -f "$BOOTSTRAP_PY_PATH" ]; then
-    echo "Error: Could not find step1_bootstrap.py at $BOOTSTRAP_PY_PATH"
+    echo "Error: Could not find bootstrap.py at $BOOTSTRAP_PY_PATH"
     echo "Current working directory: $(pwd)"
     echo "Files in code directory: $(ls -la $CODE_DIR/src/bootstrap/)"
     exit 1
@@ -66,9 +66,9 @@ conda run -n mase_phi_hpc python "$BOOTSTRAP_PY_PATH" \
 
 SCRIPT_EXIT_CODE=$?
 if [ $SCRIPT_EXIT_CODE -eq 0 ]; then
-    echo "step1_bootstrap.py completed successfully."
+    echo "bootstrap.py completed successfully."
 else
-    echo "Error: step1_bootstrap.py script failed with exit code $SCRIPT_EXIT_CODE."
+    echo "Error: bootstrap.py script failed with exit code $SCRIPT_EXIT_CODE."
     exit $SCRIPT_EXIT_CODE
 fi
 
