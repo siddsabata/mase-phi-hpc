@@ -28,12 +28,7 @@ mkdir -p "$OUTPUT_BASE_DIR/logs"
 BOOTSTRAP_DATA_DIR="$OUTPUT_BASE_DIR/bootstraps"
 mkdir -p "$BOOTSTRAP_DATA_DIR"
 
-# Redirect subsequent script output to files in $OUTPUT_BASE_DIR/logs/
-# These will be overwritten if the script is run multiple times with the same OUTPUT_BASE_DIR.
-exec > "$OUTPUT_BASE_DIR/logs/bootstrap_execution.log" 2> "$OUTPUT_BASE_DIR/logs/bootstrap_execution.err"
-
-# From this point, all echo and command output goes to the files defined above.
-echo "--- Bootstrap Script Execution (output redirected) ---"
+echo "--- Bootstrap Script Execution ---"
 echo "Input SSM File: $INPUT_SSM_FILE"
 echo "Output Base Directory: $OUTPUT_BASE_DIR"
 echo "Code Directory: $CODE_DIR"

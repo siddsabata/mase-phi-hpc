@@ -70,32 +70,12 @@ CURRENT_BOOTSTRAP_DIR_PATH="${BOOTSTRAP_DIRS[$SLURM_ARRAY_TASK_ID]}"
 BOOTSTRAP_DIR_NAME=$(basename "$CURRENT_BOOTSTRAP_DIR_PATH")
 BOOTSTRAP_NUM=$(echo "$BOOTSTRAP_DIR_NAME" | sed 's/bootstrap//') # Extracts N from bootstrapN
 
-# Find the base logs directory (one level up from bootstraps directory)
-PATIENT_BASE_DIR=$(dirname "$BASE_DIR")
-LOGS_DIR="${PATIENT_BASE_DIR}/logs"
-PHYLOWGS_LOGS_DIR="${LOGS_DIR}/phylowgs"
-
-# Create bootstrap-specific log directory with a dedicated phylowgs subdirectory
-echo "Creating logs directory: ${PHYLOWGS_LOGS_DIR}" >&2
-mkdir -p "${PHYLOWGS_LOGS_DIR}"
-
-# Set log file paths using absolute paths
-LOG_FILE="${PHYLOWGS_LOGS_DIR}/${BOOTSTRAP_DIR_NAME}.log"
-ERR_FILE="${PHYLOWGS_LOGS_DIR}/${BOOTSTRAP_DIR_NAME}.err"
-
-echo "Redirecting output to: ${LOG_FILE}" >&2
-echo "Redirecting errors to: ${ERR_FILE}" >&2
-
-# Redirect output to absolute log paths
-exec > "${LOG_FILE}" 2> "${ERR_FILE}"
-
 echo "--- PhyloWGS Processing for Bootstrap Sample: $BOOTSTRAP_DIR_NAME ---"
 echo "Job ID: $SLURM_JOB_ID, Array Task ID: $SLURM_ARRAY_TASK_ID"
 echo "Working Directory: $(pwd)"
 echo "Bootstrap Directory: $CURRENT_BOOTSTRAP_DIR_PATH"
 echo "Bootstrap Number: $BOOTSTRAP_NUM"
 echo "Code Directory: $CODE_DIR"
-echo "Log Directory: $PHYLOWGS_LOGS_DIR"
 
 SSM_FILE="${CURRENT_BOOTSTRAP_DIR_PATH}/ssm.txt"
 CNV_FILE="${CURRENT_BOOTSTRAP_DIR_PATH}/cnv.txt"

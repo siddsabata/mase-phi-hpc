@@ -194,6 +194,7 @@ if [ "$DRY_RUN" != "--dry-run" ]; then
     mkdir -p "${AGGREGATION_RESULTS_DIR}"
     mkdir -p "${MARKERS_DIR}"
     mkdir -p "${LOG_DIR}"
+    mkdir -p "${LOG_DIR}/phylowgs"
 fi
 
 # --- Logging Setup ---
@@ -259,8 +260,8 @@ submit_job_yaml() {
         --cpus-per-task="${cpus}"
         --mem="${memory}"
         --time="${walltime}"
-        --output="${LOG_DIR}/slurm_${job_name}_%j.out"
-        --error="${LOG_DIR}/slurm_${job_name}_%j.err"
+        --output="${LOG_DIR}/${job_name}.log"
+        --error="${LOG_DIR}/${job_name}.err"
     )
     
     # Add dependency if specified
@@ -281,6 +282,15 @@ submit_job_yaml() {
     if [ "$job_name" == "phylowgs" ]; then
         local array_max=$((NUM_BOOTSTRAPS - 1))
         sbatch_cmd_array+=("--array=0-${array_max}%${ARRAY_LIMIT}")
+        # Override output paths for array jobs to use phylowgs subfolder
+        # Remove the generic paths added earlier
+        for i in "${!sbatch_cmd_array[@]}"; do
+            if [[ "${sbatch_cmd_array[i]}" == "--output=${LOG_DIR}/${job_name}.log" ]]; then
+                sbatch_cmd_array[i]="--output=${LOG_DIR}/phylowgs/phylowgs_array_%A_%a.log"
+            elif [[ "${sbatch_cmd_array[i]}" == "--error=${LOG_DIR}/${job_name}.err" ]]; then
+                sbatch_cmd_array[i]="--error=${LOG_DIR}/phylowgs/phylowgs_array_%A_%a.err"
+            fi
+        done
     fi
     
     sbatch_cmd_array+=("${script_path}")

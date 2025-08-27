@@ -32,17 +32,7 @@ if [ ! -d "$CODE_DIR" ]; then
     exit 1
 fi
 
-echo "--- Aggregation Script Start (initial output to SLURM default log) ---"
-
-# --- Setup Log Directory (in the parent of OUTPUT_DIR) --- 
-LOG_DIR_IN_PARENT="$(dirname "$OUTPUT_DIR")/logs"
-mkdir -p "$LOG_DIR_IN_PARENT"
-
-# Redirect subsequent script output to files in LOG_DIR_IN_PARENT/
-exec > "$LOG_DIR_IN_PARENT/aggregation_execution.log" 2> "$LOG_DIR_IN_PARENT/aggregation_execution.err"
-
-# From this point, all echo and command output goes to the files defined above.
-echo "--- Aggregation Script Execution (output redirected) ---"
+echo "--- Aggregation Script Execution ---"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Patient ID: ${PATIENT_ID}"
 echo "Bootstrap Parent Directory: ${BOOTSTRAP_PARENT_DIR}"

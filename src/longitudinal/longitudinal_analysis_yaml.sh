@@ -95,20 +95,7 @@ echo "Gurobi module loaded successfully."
 LOG_DIR="${OUTPUT_BASE}/logs"
 mkdir -p "${LOG_DIR}"
 
-# Create log file names with optional suffix
-if [ -n "$LOG_SUFFIX" ]; then
-    LOG_FILE="${LOG_DIR}/longitudinal_yaml_analysis_${LOG_SUFFIX}.log"
-    ERR_FILE="${LOG_DIR}/longitudinal_yaml_analysis_${LOG_SUFFIX}.err"
-else
-    LOG_FILE="${LOG_DIR}/longitudinal_yaml_analysis.log"
-    ERR_FILE="${LOG_DIR}/longitudinal_yaml_analysis.err"
-fi
-
-# Redirect subsequent script output to log files
-exec > "$LOG_FILE" 2> "$ERR_FILE"
-
-# From this point, all output goes to the log files
-echo "--- Longitudinal YAML Analysis Script v2.0 Execution (output redirected) ---"
+echo "--- Longitudinal YAML Analysis Script v2.0 Execution ---"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Configuration file: $CONFIG_FILE"
 echo "Patient ID: $PATIENT_ID"

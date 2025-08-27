@@ -53,23 +53,15 @@ if [ ! -d "$CODE_DIR" ]; then
     exit 1
 fi
 
-echo "--- Marker Selection Script Start (initial output to SLURM default log) ---"
+echo "--- Marker Selection Script Execution ---"
 
 # --- Setup directories and paths ---
 # Get the parent directory of the aggregation directory (should be the 'initial' directory)
 INITIAL_DIR="$(dirname "$AGGREGATION_DIR")"
 MARKERS_DIR="${INITIAL_DIR}/markers"
-LOG_DIR="${INITIAL_DIR}/logs"
 
 # Create the markers directory if it doesn't exist
 mkdir -p "${MARKERS_DIR}"
-mkdir -p "${LOG_DIR}"
-
-# Redirect subsequent script output to files in LOG_DIR/
-exec > "$LOG_DIR/marker_selection_execution.log" 2> "$LOG_DIR/marker_selection_execution.err"
-
-# From this point, all echo and command output goes to the files defined above.
-echo "--- Marker Selection Script Execution (output redirected) ---"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Patient ID: ${PATIENT_ID}"
 echo "Aggregation Directory: ${AGGREGATION_DIR}"
