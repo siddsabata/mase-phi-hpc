@@ -7,7 +7,7 @@ analysis_type: "standard"  # Options: standard, test, high_depth
 
 # Input files and directories - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
 input:
-  ssm_file: "/home/ssabata/mase-phi-hpc/data/ssm.txt"
+  ssm_file: "/home/ssabata/mase-phi-hpc/data/input/ssm.txt"
   code_dir: "/home/ssabata/mase-phi-hpc/"  # Base directory of the TracerX-MP repository
 
 # Output configuration
