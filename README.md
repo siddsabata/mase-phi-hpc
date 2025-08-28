@@ -1,6 +1,6 @@
-# TracerX Marker Selection Pipeline
+# Mase-phi HPC
 
-A phylogenetic analysis pipeline for cancer genomics that processes mutation data (SSM files) through bootstrap sampling, phylogenetic tree inference, aggregation, and marker selection.
+A phylogenetic analysis pipeline for cancer genomics that processes WGS mutation data (SSM files) through bootstrap sampling, phylogenetic tree inference, aggregation, and marker selection.
 
 ## Installation
 
