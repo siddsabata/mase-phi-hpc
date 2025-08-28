@@ -196,6 +196,12 @@ def apply_vaf_prefiltering(input_ssm_df, threshold=0.9):
     filtered_df = pd.DataFrame(filtered_mutations)
     filtered_count = len(filtered_df)
     
+    # Reassign sequential mutation IDs starting from s0 (required by PhyloWGS)
+    if not filtered_df.empty:
+        filtered_df.reset_index(drop=True, inplace=True)
+        filtered_df['id'] = [f's{i}' for i in range(len(filtered_df))]
+        print(f"Reassigned mutation IDs: s0 to s{len(filtered_df)-1}")
+    
     print(f"VAF pre-filtering: {original_count} → {filtered_count} mutations")
     print(f"Removed {original_count - filtered_count} mutations with VAF >= {threshold}")
     
