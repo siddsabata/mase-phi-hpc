@@ -1,6 +1,3 @@
-# TracerX Marker Selection Pipeline - Standard Analysis Configuration
-# Complete configuration for steps 1-4: Bootstrap → PhyloWGS → Aggregation → Marker Selection
-
 # Patient and analysis identification
 patient_id: "ppi_115"
 
@@ -11,7 +8,7 @@ input:
 
 # Output configuration
 output:
-  base_dir: "/home/ssabata/patient_data/filter_test/"  # Patient base directory
+  base_dir: "/home/ssabata/patient_data/vaf_filter_test/"  # Patient base directory
 
 # Step 1: Bootstrap configuration
 bootstrap:
