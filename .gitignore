@@ -79,18 +79,6 @@ slurm-*.err
 *.o[0-9]*
 *.e[0-9]*
 
-# Pipeline Output Directories
-logs/
-output/
-results/
-**/logs/
-**/output/
-**/results/
-**/bootstraps/
-**/aggregation_results/
-**/markers/
-**/longitudinal/
-
 # Data Files (typically large, store elsewhere)
 *.csv
 *.tsv
