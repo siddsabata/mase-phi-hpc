@@ -37,9 +37,7 @@ aggregation:
 # Step 4: Marker selection configuration
 marker_selection:
   read_depth: 1500
-  filter_strategy: "any_high"  # Conservative strategy for multi-patient consistency
-  filter_threshold: 0.9        # Conservative threshold for multi-patient
-  filter_samples: []           # For specific_samples strategy: [0, 1]
+  # Note: VAF filtering (threshold=0.9, any_high strategy) now applied in bootstrap stage
   
   # Optimization parameters
   optimization:

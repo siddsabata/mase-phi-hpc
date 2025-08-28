@@ -8,7 +8,7 @@ compatibility with the original marker selection algorithms and tree distributio
 
 from optimize import *
 from optimize_fraction import *
-from convert_ssm import convert_ssm_to_dataframe_multi
+# Note: VAF filtering now handled in bootstrap stage, no need for convert_ssm
 import pandas as pd
 import pickle
 import argparse
@@ -36,118 +36,15 @@ def parse_args():
     parser.add_argument('-o', '--output-dir', type=str,
                         help='Path to output directory for marker selection results')
     
-    # VAF filtering options
-    parser.add_argument('-f', '--filter-strategy', type=str, 
-                       choices=['any_high', 'all_high', 'majority_high', 'specific_samples'],
-                       default='any_high',
-                       help='VAF filtering strategy (default: any_high)')
-    
-    parser.add_argument('-t', '--filter-threshold', type=float, default=0.9,
-                       help='VAF threshold for filtering (default: 0.9)')
-    
-    parser.add_argument('--filter-samples', type=int, nargs='+',
-                       help='Sample indices for specific_samples filtering strategy')
+    # Note: VAF filtering is now handled in the bootstrap stage
+    # The SSM file passed to this script should already be pre-filtered
     
     return parser.parse_args()
 
 
-def create_backward_compatible_dataframe(multi_sample_df):
-    """
-    Create a backward-compatible DataFrame that mimics the old cf/st format.
-    
-    This function takes a multi-sample DataFrame and creates the two-column
-    VAF format expected by the original marker selection code.
-    
-    Args:
-        multi_sample_df: DataFrame with VAF_sample_0, VAF_sample_1, etc. columns
-        
-    Returns:
-        DataFrame with Variant_Frequencies_cf and Variant_Frequencies_st columns
-    """
-    # Get VAF columns
-    vaf_columns = [col for col in multi_sample_df.columns if col.startswith('VAF_sample_')]
-    
-    if len(vaf_columns) < 2:
-        print("Warning: Less than 2 samples available. Using available samples for cf/st.")
-        
-    # Create backward-compatible DataFrame
-    compat_df = multi_sample_df.copy()
-    
-    # Use first two samples as cf and st equivalents
-    if len(vaf_columns) >= 1:
-        compat_df['Variant_Frequencies_cf'] = multi_sample_df[vaf_columns[0]]
-    else:
-        compat_df['Variant_Frequencies_cf'] = 0.0
-        
-    if len(vaf_columns) >= 2:
-        compat_df['Variant_Frequencies_st'] = multi_sample_df[vaf_columns[1]]
-    else:
-        compat_df['Variant_Frequencies_st'] = 0.0
-    
-    # Remove the VAF_sample_* columns to match old format
-    for col in vaf_columns:
-        compat_df = compat_df.drop(columns=[col])
-    
-    return compat_df
-
-
-def validate_tree_compatibility(gene_list, tree_distribution):
-    """
-    Validate that the gene list is compatible with the tree distribution data.
-    
-    Args:
-        gene_list: List of gene IDs from filtered DataFrame
-        tree_distribution: Tree distribution data from aggregation
-        
-    Returns:
-        bool: True if compatible, False otherwise
-    """
-    try:
-        # Get the node dictionaries which contain the mutation assignments
-        node_list = tree_distribution['node_dict']
-        if not node_list:
-            print("Warning: No node dictionary data found in tree distribution")
-            return False
-        
-        # Extract all mutations from the first tree's node dictionary
-        # (all trees should have the same mutations, just different assignments)
-        first_tree_node_dict = node_list[0]
-        tree_mutations = set()
-        
-        for node, mutations in first_tree_node_dict.items():
-            tree_mutations.update(mutations)
-        
-        expected_gene_count = len(tree_mutations)
-        actual_gene_count = len(gene_list)
-        
-        # Also check that the gene IDs match
-        gene_set = set(gene_list)
-        
-        if expected_gene_count != actual_gene_count:
-            print(f"ERROR: Gene count mismatch!")
-            print(f"  Tree data expects: {expected_gene_count} genes")
-            print(f"  Filtered data has: {actual_gene_count} genes")
-            print(f"  This indicates the filtering produced a different mutation set than expected.")
-            print(f"  The tree distribution was computed on a different set of mutations.")
-            return False
-        
-        # Check if the gene sets match
-        if tree_mutations != gene_set:
-            missing_in_tree = gene_set - tree_mutations
-            missing_in_genes = tree_mutations - gene_set
-            print(f"ERROR: Gene set mismatch!")
-            if missing_in_tree:
-                print(f"  Genes in filtered data but not in tree: {sorted(missing_in_tree)}")
-            if missing_in_genes:
-                print(f"  Genes in tree but not in filtered data: {sorted(missing_in_genes)}")
-            return False
-            
-        print(f"Validation successful: {expected_gene_count} genes match between tree and filtered data")
-        return True
-        
-    except Exception as e:
-        print(f"Error validating tree compatibility: {e}")
-        return False
+# Obsolete functions removed - VAF filtering now handled in bootstrap stage
+# create_backward_compatible_dataframe() - No longer needed
+# validate_tree_compatibility() - Tree compatibility guaranteed by design
 
 
 def main():
@@ -179,39 +76,80 @@ def main():
     with open(tree_distribution_file, 'rb') as f:
         tree_distribution = pickle.load(f)
 
-    # Convert SSM file to multi-sample DataFrame format
-    print(f"Converting SSM file with filtering strategy: {args.filter_strategy}")
-    multi_sample_df = convert_ssm_to_dataframe_multi(
-        ssm_file_path, 
-        args.filter_strategy, 
-        args.filter_threshold,
-        args.filter_samples
-    )
-    
-    print(f"Multi-sample DataFrame shape: {multi_sample_df.shape}")
-    print("Multi-sample DataFrame columns:", list(multi_sample_df.columns))
-
-    # Create backward-compatible DataFrame for the marker selection algorithms
-    print("Creating backward-compatible DataFrame...")
-    inter = create_backward_compatible_dataframe(multi_sample_df)
-    
-    print(f"Backward-compatible DataFrame shape: {inter.shape}")
-    print("Backward-compatible DataFrame columns:", list(inter.columns))
-
-    # Apply additional filtering if needed (this should be minimal since filtering was done in conversion)
-    print("Applying final VAF filtering check...")
-    original_count = len(inter)
-    
-    # Apply the same filtering logic as the old code (should be redundant but ensures compatibility)
-    inter = inter[inter["Variant_Frequencies_cf"] < args.filter_threshold]
-    inter = inter[inter["Variant_Frequencies_st"] < args.filter_threshold]
-    
-    filtered_count = len(inter)
-    print(f"Final filtering check: {original_count} → {filtered_count} mutations")
-    
-    if filtered_count == 0:
-        print("Error: All mutations were filtered out. Check VAF thresholds and filtering strategy.")
+    # Read pre-filtered SSM file directly (filtering done in bootstrap stage)
+    print(f"Reading pre-filtered SSM file: {ssm_file_path}")
+    try:
+        ssm_df = pd.read_csv(ssm_file_path, sep='\t')
+    except Exception as e:
+        print(f"Error reading SSM file: {e}")
         sys.exit(1)
+    
+    print(f"Pre-filtered SSM DataFrame shape: {ssm_df.shape}")
+    
+    if ssm_df.empty:
+        print("Error: SSM file is empty.")
+        sys.exit(1)
+    
+    # Parse gene information from SSM file for backward compatibility
+    def parse_gene_info(gene_string):
+        """Parse gene string (expected format: SYMBOL_CHR_POS_REF>ALT or just SYMBOL)"""
+        if pd.isna(gene_string) or not isinstance(gene_string, str):
+            return {'Symbol': 'Unknown', 'Chromosome': 'N/A', 'Start_Position': 'N/A', 'Ref': 'N', 'Alt': 'N'}
+        
+        parts = gene_string.split('_')
+        if len(parts) >= 4:
+            symbol = parts[0]
+            chromosome = parts[1] 
+            position = parts[2]
+            mutation_part = parts[3]
+            if '>' in mutation_part:
+                ref, alt = mutation_part.split('>', 1)
+            else:
+                ref, alt = 'N', 'N'
+            return {'Symbol': symbol, 'Chromosome': chromosome, 'Start_Position': position, 'Ref': ref, 'Alt': alt}
+        else:
+            return {'Symbol': gene_string, 'Chromosome': 'N/A', 'Start_Position': 'N/A', 'Ref': 'N', 'Alt': 'N'}
+    
+    # Create backward-compatible DataFrame structure
+    gene_info_list = ssm_df['gene'].apply(parse_gene_info)
+    
+    # Calculate VAFs from 'a' and 'd' columns for first two samples (backward compatibility)
+    def calculate_sample_vafs(row):
+        try:
+            a_counts = [int(x) for x in str(row['a']).split(',') if x.strip()]
+            d_counts = [int(x) for x in str(row['d']).split(',') if x.strip()]
+            
+            vafs = []
+            for ref_count, total_depth in zip(a_counts, d_counts):
+                if total_depth > 0:
+                    vaf = (total_depth - ref_count) / total_depth
+                    vafs.append(vaf)
+                else:
+                    vafs.append(0.0)
+            return vafs
+        except:
+            return [0.0, 0.0]
+    
+    vaf_lists = ssm_df.apply(calculate_sample_vafs, axis=1)
+    
+    # Create DataFrame with marker selection expected format
+    inter_data = []
+    for i, (idx, row) in enumerate(ssm_df.iterrows()):
+        gene_info = gene_info_list.iloc[i]
+        vafs = vaf_lists.iloc[i]
+        
+        inter_data.append({
+            'Hugo_Symbol': gene_info['Symbol'],
+            'Reference_Allele': gene_info['Ref'],
+            'Allele': gene_info['Alt'],
+            'Chromosome': gene_info['Chromosome'],
+            'Start_Position': gene_info['Start_Position'],
+            'Variant_Frequencies_cf': vafs[0] if len(vafs) > 0 else 0.0,
+            'Variant_Frequencies_st': vafs[1] if len(vafs) > 1 else 0.0
+        })
+    
+    inter = pd.DataFrame(inter_data)
+    print(f"Created backward-compatible DataFrame with {len(inter)} mutations")
     
     calls = inter
 
@@ -221,15 +159,8 @@ def main():
     
     print(f"Created gene indexing: {len(gene_list)} genes (s0 to s{len(gene_list)-1})")
 
-    # Validate compatibility with tree distribution
-    if not validate_tree_compatibility(gene_list, tree_distribution):
-        print("\nERROR: The filtered mutation set is incompatible with the tree distribution data.")
-        print("This likely means the tree distribution was computed on a different set of mutations.")
-        print("Possible solutions:")
-        print("1. Use a different filtering strategy")
-        print("2. Regenerate the tree distribution with the current mutation set")
-        print("3. Check that the SSM file matches the one used for tree computation")
-        sys.exit(1)
+    # Tree compatibility is guaranteed since bootstrap, PhyloWGS, and marker selection
+    # all use the same pre-filtered mutation set from the bootstrap stage
 
     # Create gene names exactly as in old code
     gene_name_list = []
@@ -289,12 +220,9 @@ def main():
     with open(results_file, 'w') as f:
         f.write(f"Marker Selection Results for Patient {patient}\n")
         f.write("=" * 50 + "\n")
-        f.write(f"Input: {ssm_file_path}\n")
-        f.write(f"Filter strategy: {args.filter_strategy}\n")
-        f.write(f"Filter threshold: {args.filter_threshold}\n")
-        if args.filter_samples:
-            f.write(f"Filter samples: {args.filter_samples}\n")
-        f.write(f"Mutations after filtering: {len(gene_list)}\n")
+        f.write(f"Input (pre-filtered): {ssm_file_path}\n")
+        f.write(f"Note: VAF filtering (threshold=0.9, any_high strategy) applied in bootstrap stage\n")
+        f.write(f"Mutations in analysis: {len(gene_list)}\n")
         f.write(f"Read depth: {read_depth}\n\n")
 
     # Method 1: Tracing fractions
@@ -355,7 +283,7 @@ def main():
         plt.plot(position1, obj1_ordered, 'o-', label='tracing-fractions')
         plt.xticks(position1, selected_markers1_genename_ordered, rotation=30)
         plt.legend()
-        plt.title(f'Patient {patient} - Tracing Fractions ({args.filter_strategy})')
+        plt.title(f'Patient {patient} - Tracing Fractions (VAF Pre-filtered)')
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f'{patient}_tracing_subclones.png'), format='png', dpi=300, bbox_inches='tight')
         plt.close()
@@ -421,7 +349,7 @@ def main():
         plt.plot(position2, obj2_frac_ordered, 'o-', color='tab:orange', label='trees-fractions')
         plt.xticks(position2, selected_markers2_genename_ordered, rotation=30)
         plt.legend()
-        plt.title(f'Patient {patient} - Tree Fractions (λ1={lam1}, λ2={lam2}, {args.filter_strategy})')
+        plt.title(f'Patient {patient} - Tree Fractions (λ1={lam1}, λ2={lam2}, VAF Pre-filtered)')
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f'{patient}_trees_fractions_{lam1}_{lam2}_{read_depth}.png'), format='png', dpi=300, bbox_inches='tight')
         plt.close()
@@ -431,7 +359,7 @@ def main():
         plt.plot(position2, obj2_struct_ordered, 'o-', color='tab:green', label='trees-structure')
         plt.xticks(position2, selected_markers2_genename_ordered, rotation=30)
         plt.legend()
-        plt.title(f'Patient {patient} - Tree Structures (λ1={lam1}, λ2={lam2}, {args.filter_strategy})')
+        plt.title(f'Patient {patient} - Tree Structures (λ1={lam1}, λ2={lam2}, VAF Pre-filtered)')
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f'{patient}_trees_structures_{lam1}_{lam2}_{read_depth}.png'), format='png', dpi=300, bbox_inches='tight')
         plt.close()

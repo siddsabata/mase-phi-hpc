@@ -21,11 +21,11 @@ fi
 echo "Gurobi module loaded successfully."
 
 # --- Argument Parsing and Validation ---
-if [ "$#" -lt 4 ] || [ "$#" -gt 8 ]; then
+if [ "$#" -lt 4 ] || [ "$#" -gt 5 ]; then
     echo "Error: Incorrect number of arguments."
-    echo "Usage: sbatch $0 <patient_id> <aggregation_directory> <ssm_file_path> <code_directory> [read_depth] [filter_strategy] [filter_threshold] [filter_samples]"
-    echo "Example: sbatch $0 CRUK0001 /path/to/data/CRUK0001/initial/aggregation_results /path/to/data/CRUK0001/ssm.txt /path/to/tracerx-mp 1500 any_high 0.9"
-    echo "Filter strategies: any_high, all_high, majority_high, specific_samples"
+    echo "Usage: sbatch $0 <patient_id> <aggregation_directory> <ssm_file_path> <code_directory> [read_depth]"
+    echo "Example: sbatch $0 CRUK0001 /path/to/data/CRUK0001/initial/aggregation_results /path/to/data/CRUK0001/initial/ssm_filtered.txt /path/to/tracerx-mp 1500"
+    echo "Note: SSM file should be pre-filtered from bootstrap stage (VAF filtering applied there)"
     exit 1
 fi
 
@@ -34,9 +34,6 @@ AGGREGATION_DIR=$2
 SSM_FILE=$3
 CODE_DIR=$4
 READ_DEPTH=${5:-1500} # Default to 1500 if not provided
-FILTER_STRATEGY=${6:-any_high} # Default to any_high if not provided
-FILTER_THRESHOLD=${7:-0.9} # Default to 0.9 if not provided
-FILTER_SAMPLES=${8:-""} # Optional specific samples for specific_samples strategy
 
 if [ ! -d "$AGGREGATION_DIR" ]; then
     echo "Error: Aggregation directory '$AGGREGATION_DIR' not found."
@@ -66,13 +63,10 @@ echo "Job ID: $SLURM_JOB_ID"
 echo "Patient ID: ${PATIENT_ID}"
 echo "Aggregation Directory: ${AGGREGATION_DIR}"
 echo "Markers Directory: ${MARKERS_DIR}"
-echo "SSM File: ${SSM_FILE}"
+echo "SSM File (pre-filtered): ${SSM_FILE}"
 echo "Code Directory: ${CODE_DIR}"
 echo "Read Depth: ${READ_DEPTH}"
-echo "Filter Strategy: ${FILTER_STRATEGY}"
-echo "Filter Threshold: ${FILTER_THRESHOLD}"
-echo "Filter Samples: ${FILTER_SAMPLES}"
-echo "Log Directory: ${LOG_DIR}"
+echo "Note: VAF filtering (threshold=0.9, any_high) applied in bootstrap stage"
 echo "---------------------------------------"
 
 # --- Environment Setup ---
@@ -109,14 +103,9 @@ CMD="conda run -n mase_phi_hpc python \"$MARKER_SCRIPT_PATH\" \"${PATIENT_ID}\" 
     -a \"${AGGREGATION_DIR}\" \
     -s \"${SSM_FILE}\" \
     -r \"${READ_DEPTH}\" \
-    -o \"${MARKERS_DIR}\" \
-    -f \"${FILTER_STRATEGY}\" \
-    -t \"${FILTER_THRESHOLD}\""
+    -o \"${MARKERS_DIR}\""
 
-# Add filter samples if specified (for specific_samples strategy)
-if [ -n "$FILTER_SAMPLES" ]; then
-    CMD="$CMD --filter-samples $FILTER_SAMPLES"
-fi
+# Note: Filtering parameters removed - SSM file is already pre-filtered from bootstrap stage
 
 echo "Executing command: $CMD"
 eval $CMD

@@ -8,7 +8,7 @@ analysis_mode: "fixed"  # Can be "dynamic" or "fixed"
 # Input file paths
 input_files:
   aggregation_dir: "/path/to/aggregation_results"
-  ssm_file: "/path/to/ssm.txt"
+  ssm_file: "/path/to/patient_base/initial/ssm_filtered.txt"  # Use pre-filtered SSM from bootstrap stage
   longitudinal_data: "/path/to/longitudinal_data.csv"
   code_dir: "/path/to/tracerx-mp"
 

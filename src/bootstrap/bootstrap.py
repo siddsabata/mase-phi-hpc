@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import sys
 import argparse
 from pathlib import Path
 
@@ -127,6 +128,80 @@ def write_bootstrapped_ssm_file(mutations_for_this_bootstrap_iter, bootstrap_ite
     cnv_file_path = bootstrap_sub_dir / 'cnv.txt'
     cnv_file_path.touch()
 
+def apply_vaf_prefiltering(input_ssm_df, threshold=0.9):
+    """
+    Apply VAF pre-filtering using "any_high" strategy.
+    Removes mutations where ANY sample has VAF >= threshold.
+    
+    Args:
+        input_ssm_df (pd.DataFrame): Input SSM DataFrame
+        threshold (float): VAF threshold for filtering (default: 0.9)
+        
+    Returns:
+        pd.DataFrame: Filtered SSM DataFrame
+    """
+    print(f"Applying VAF pre-filtering (threshold >= {threshold})...")
+    original_count = len(input_ssm_df)
+    
+    filtered_mutations = []
+    
+    for index, row in input_ssm_df.iterrows():
+        mutation_id_val = row['id']
+        
+        try:
+            # Parse reference and total counts
+            if isinstance(row['a'], str):
+                ref_counts_str = row['a'].split(',')
+                depth_counts_str = row['d'].split(',')
+            else:
+                ref_counts_str = [str(row['a'])]
+                depth_counts_str = [str(row['d'])]
+                
+            if len(ref_counts_str) != len(depth_counts_str):
+                print(f"Warning: Sample count mismatch for {mutation_id_val}, skipping")
+                continue
+                
+            ref_counts = [int(c) for c in ref_counts_str]
+            depth_counts = [int(d) for d in depth_counts_str]
+            
+        except (ValueError, AttributeError, TypeError):
+            print(f"Warning: Could not parse counts for {mutation_id_val}, skipping")
+            continue
+        
+        # Calculate VAFs for all samples
+        vafs = []
+        valid_sample_found = False
+        
+        for ref_count, total_depth in zip(ref_counts, depth_counts):
+            if total_depth < 0 or ref_count < 0 or ref_count > total_depth:
+                continue  # Skip invalid samples
+                
+            valid_sample_found = True
+            if total_depth == 0:
+                vafs.append(0.0)
+            else:
+                vaf = (total_depth - ref_count) / total_depth
+                vafs.append(vaf)
+        
+        if not valid_sample_found:
+            continue  # Skip mutations with no valid samples
+        
+        # Apply "any_high" filtering: keep if ALL VAFs < threshold
+        if all(vaf < threshold for vaf in vafs):
+            filtered_mutations.append(row)
+        else:
+            # Mutation filtered out due to high VAF
+            pass
+    
+    filtered_df = pd.DataFrame(filtered_mutations)
+    filtered_count = len(filtered_df)
+    
+    print(f"VAF pre-filtering: {original_count} → {filtered_count} mutations")
+    print(f"Removed {original_count - filtered_count} mutations with VAF >= {threshold}")
+    
+    return filtered_df
+
+
 def process_and_bootstrap_ssm(input_ssm_df, num_bootstraps, output_dir):
     """
     Processes an input SSM DataFrame, performs bootstrapping, and writes output SSM files.
@@ -250,23 +325,59 @@ def main():
         input_ssm_df = pd.read_csv(args.input, sep='\t')
     except FileNotFoundError:
         print(f"Error: Input SSM file not found at {args.input}")
-        return
+        sys.exit(1)
     except Exception as e:
         print(f"Error reading SSM file: {e}")
-        return
+        sys.exit(1)
     
     if input_ssm_df.empty:
         print("Input SSM file is empty. Exiting.")
-        return
+        sys.exit(1)
 
     # Check for required columns
     required_cols = ['id', 'gene', 'a', 'd', 'mu_r', 'mu_v']
     missing_cols = [col for col in required_cols if col not in input_ssm_df.columns]
     if missing_cols:
         print(f"Error: Input SSM file is missing required columns: {', '.join(missing_cols)}")
-        return
+        sys.exit(1)
 
-    process_and_bootstrap_ssm(input_ssm_df, args.num_bootstraps, args.output_dir)
+    # Apply VAF pre-filtering before bootstrap processing
+    filtered_ssm_df = apply_vaf_prefiltering(input_ssm_df, threshold=0.9)
+    
+    if filtered_ssm_df.empty:
+        print("Error: All mutations were filtered out by VAF pre-filtering. Check input data quality.")
+        sys.exit(1)
+    
+    # Check minimum mutation count for meaningful phylogenetic analysis
+    min_mutations = 5
+    if len(filtered_ssm_df) < min_mutations:
+        print(f"Error: After VAF filtering, only {len(filtered_ssm_df)} mutations remain.")
+        print(f"Pipeline requires at least {min_mutations} mutations for meaningful phylogenetic analysis.")
+        print("This typically indicates:")
+        print("  - Input data has too many high-VAF mutations (likely artifacts)")
+        print("  - Sample has very few somatic mutations")
+        print("  - VAF filtering threshold may be too strict for this dataset")
+        print("Pipeline terminated to prevent poor-quality results.")
+        sys.exit(1)
+    
+    print(f"✅ Quality check passed: {len(filtered_ssm_df)} mutations available for phylogenetic analysis")
+    
+    # Save filtered SSM file for downstream stages
+    # Extract patient base directory from output path (output_dir is typically {patient_base}/initial/bootstraps)
+    output_path = Path(args.output_dir)
+    if output_path.name == 'bootstraps' and output_path.parent.name == 'initial':
+        # Standard pipeline structure: {patient_base}/initial/bootstraps
+        patient_initial_dir = output_path.parent
+        filtered_ssm_path = patient_initial_dir / 'ssm_filtered.txt'
+    else:
+        # Fallback: save in same directory as bootstrap output
+        filtered_ssm_path = output_path / 'ssm_filtered.txt'
+    
+    print(f"Saving filtered SSM file to: {filtered_ssm_path}")
+    filtered_ssm_df.to_csv(filtered_ssm_path, sep='\t', index=False)
+    
+    # Process bootstraps using filtered data
+    process_and_bootstrap_ssm(filtered_ssm_df, args.num_bootstraps, args.output_dir)
 
 if __name__ == "__main__":
     main() 

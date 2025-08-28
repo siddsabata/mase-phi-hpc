@@ -36,9 +36,7 @@ aggregation:
 # Step 4: Marker selection configuration (comprehensive)
 marker_selection:
   read_depth: 10000        # High read depth for sensitive detection
-  filter_strategy: "majority_high"  # More sophisticated filtering
-  filter_threshold: 0.95   # Stricter filtering for high quality
-  filter_samples: []
+  # Note: VAF filtering (threshold=0.9, any_high strategy) now applied in bootstrap stage
   
   # Optimization parameters (comprehensive)
   optimization:

@@ -83,22 +83,24 @@ def parse_config(config_file):
     # Marker selection configuration
     marker_config = config.get('marker_selection', {})
     read_depth = marker_config.get('read_depth', 1500)
-    filter_strategy = marker_config.get('filter_strategy', 'any_high')
-    filter_threshold = marker_config.get('filter_threshold', 0.9)
+    # Note: VAF filtering parameters removed - filtering now handled in bootstrap stage
     
     # HPC configuration
     hpc_config = config.get('hpc', {})
     
+    # Construct filtered SSM file path
+    filtered_ssm_file = f"{base_dir}/{patient_id}/initial/ssm_filtered.txt"
+    
     # Print shell variable exports
     print(f'export PATIENT_ID="{patient_id}"')
     print(f'export INPUT_SSM_FILE="{ssm_file}"')
+    print(f'export FILTERED_SSM_FILE="{filtered_ssm_file}"')
     print(f'export CODE_DIR="{code_dir}"')
     print(f'export PATIENT_BASE_DIR="{base_dir}"')
     print(f'export NUM_BOOTSTRAPS="{num_bootstraps}"')
     print(f'export ARRAY_LIMIT="{array_limit}"')
     print(f'export READ_DEPTH="{read_depth}"')
-    print(f'export FILTER_STRATEGY="{filter_strategy}"')
-    print(f'export FILTER_THRESHOLD="{filter_threshold}"')
+    # Note: Filter strategy and threshold exports removed - handled in bootstrap stage
     
     # HPC settings for each step
     for step in ['bootstrap', 'phylowgs', 'aggregation', 'marker_selection']:
@@ -342,8 +344,8 @@ AGGREGATION_JOB_ID=$(submit_job_yaml "aggregation" "${PHYLOWGS_JOB_ID}" \
 echo "Starting Marker Selection Stage..."
 MARKER_SELECTION_JOB_ID=$(submit_job_yaml "marker_selection" "${AGGREGATION_JOB_ID}" \
     "${CODE_DIR}/src/markers/marker_selection.sh" \
-    "${PATIENT_ID}" "${AGGREGATION_RESULTS_DIR}" "${INPUT_SSM_FILE}" "${CODE_DIR}" \
-    "${READ_DEPTH}" "${FILTER_STRATEGY}" "${FILTER_THRESHOLD}")
+    "${PATIENT_ID}" "${AGGREGATION_RESULTS_DIR}" "${FILTERED_SSM_FILE}" "${CODE_DIR}" \
+    "${READ_DEPTH}")
 
 # --- Final Status ---
 echo "----------------------------------------"
