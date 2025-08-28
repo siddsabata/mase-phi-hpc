@@ -8,7 +8,7 @@ DEPRECATED: This file is maintained for backward compatibility only.
 New code should import directly from the specific modules:
 - tree_operations: For tree manipulation and node collapsing
 - tree_rendering: For Graphviz visualization and tree utilities  
-- step3_visualization: For main visualization and analysis functions
+- visualization: For main visualization and analysis functions
 """
 
 # Import all functions from the new modular structure for backward compatibility
@@ -17,7 +17,7 @@ from tree_rendering import (
     render_tumor_tree, add_prefix_tree, df2dict, W2node_dict,
     generate_tree, generate_cp, root_searching, E2tree, validate_sample_consistency
 )
-from step3_visualization import (
+from visualization import (
     combine_existing_tree_and_frequency_plots, analyze_tree_distribution, 
     plot_mut_profile_comparison
 )

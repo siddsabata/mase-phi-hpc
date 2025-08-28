@@ -9,7 +9,7 @@ analysis_mode: "fixed"
 # Input file paths - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
 input_files:
   aggregation_dir: "/home/ssabata/patient_data/cruk0044/initial/aggregation_results/"
-  ssm_file: "/home/ssabata/tracerx-mp/data/ssm.txt"
+  ssm_file: "/home/ssabata/patient_data/cruk0044/initial/ssm_filtered.txt"  # Pre-filtered SSM from bootstrap stage
   longitudinal_data: "/home/ssabata/tracerx-mp/data/cruk0044_liquid.csv"
   # Base directory of the TracerX-MP repository
   code_dir: "/home/ssabata/tracerx-mp/"

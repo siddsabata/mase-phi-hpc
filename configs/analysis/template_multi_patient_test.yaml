@@ -37,9 +37,7 @@ aggregation:
 # Step 4: Marker selection configuration (simplified for testing)
 marker_selection:
   read_depth: 1000       # Lower for testing
-  filter_strategy: "any_high"
-  filter_threshold: 0.8  # More permissive for testing
-  filter_samples: []
+  # Note: VAF filtering (threshold=0.9, any_high strategy) now applied in bootstrap stage
   
   # Optimization parameters (simplified for testing)
   optimization:

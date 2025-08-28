@@ -1,9 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=aggregation
-# SLURM will use default log files (e.g., slurm-%j.out in submission dir).
-#SBATCH --partition=pool1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem=16G
+# Aggregates PhyloWGS results from multiple bootstrap samples
+# Usage: sbatch aggregation.sh <patient_id> <bootstrap_parent_directory> <output_directory> <code_directory>
 
 set -e
 
@@ -32,17 +29,7 @@ if [ ! -d "$CODE_DIR" ]; then
     exit 1
 fi
 
-echo "--- Aggregation Script Start (initial output to SLURM default log) ---"
-
-# --- Setup Log Directory (in the parent of OUTPUT_DIR) --- 
-LOG_DIR_IN_PARENT="$(dirname "$OUTPUT_DIR")/logs"
-mkdir -p "$LOG_DIR_IN_PARENT"
-
-# Redirect subsequent script output to files in LOG_DIR_IN_PARENT/
-exec > "$LOG_DIR_IN_PARENT/aggregation_execution.log" 2> "$LOG_DIR_IN_PARENT/aggregation_execution.err"
-
-# From this point, all echo and command output goes to the files defined above.
-echo "--- Aggregation Script Execution (output redirected) ---"
+echo "--- Aggregation Script Execution ---"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Patient ID: ${PATIENT_ID}"
 echo "Bootstrap Parent Directory: ${BOOTSTRAP_PARENT_DIR}"
@@ -51,18 +38,13 @@ echo "Code Directory: ${CODE_DIR}"
 echo "Number of Bootstraps (hardcoded): ${NUM_BOOTSTRAPS}"
 echo "---------------------------------------"
 
-# --- Environment Activation ---
-echo "Activating conda environment: aggregation_env"
-source ~/miniconda3/bin/activate aggregation_env
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to activate conda environment 'aggregation_env'. Exiting."
-    exit 1
-fi
-echo "Conda environment activated."
+# --- Environment Setup ---
+echo "Using conda environment mase_phi_hpc..."
+cd "$CODE_DIR"
 
 # --- Script Paths and Execution ---
-# Use the absolute path to the step3_aggregate.py script based on the provided code directory
-PROCESS_SCRIPT_PATH="${CODE_DIR}/src/aggregation/step3_aggregate.py"
+# Use the absolute path to the aggregate.py script based on the provided code directory
+PROCESS_SCRIPT_PATH="${CODE_DIR}/src/aggregation/aggregate.py"
 
 if [ ! -f "$PROCESS_SCRIPT_PATH" ]; then
     echo "Error: Aggregation Python script not found at $PROCESS_SCRIPT_PATH. Exiting."
@@ -78,7 +60,7 @@ echo "Running Python aggregation script: $PROCESS_SCRIPT_PATH"
 echo "Input bootstrap data from: $BOOTSTRAP_PARENT_DIR"
 echo "Output aggregation results to: $OUTPUT_DIR"
 
-python "$PROCESS_SCRIPT_PATH" "${PATIENT_ID}" \
+conda run -n mase_phi_hpc python "$PROCESS_SCRIPT_PATH" "${PATIENT_ID}" \
     --bootstrap-list $bootstrap_list \
     --bootstrap-parent-dir "${BOOTSTRAP_PARENT_DIR}" \
     --output-dir "${OUTPUT_DIR}"
@@ -92,6 +74,5 @@ else
     exit $SCRIPT_EXIT_CODE
 fi
 
-echo "Detailed script execution logs are in: $LOG_DIR_IN_PARENT/ (aggregation_execution.log/err)"
 echo "Primary SLURM job log is in the submission directory."
-echo "--- Aggregation Script End (redirected output) ---" 
+echo "--- Aggregation Script End ---" 

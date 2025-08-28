@@ -1,0 +1,52 @@
+# Patient and analysis identification
+patient_id: "PLACEHOLDER_PATIENT_ID"
+
+# Input files and directories - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
+input:
+  ssm_file: "PLACEHOLDER_SSM_FILE"
+  code_dir: "PLACEHOLDER_CODE_DIR"
+
+# Output configuration
+output:
+  base_dir: "PLACEHOLDER_OUTPUT_DIR"  # Patient base directory
+
+# Step 1: Bootstrap configuration
+bootstrap:
+  num_bootstraps: 5  # Number of bootstrap samples to generate
+
+# Step 2: PhyloWGS configuration  
+phylowgs:
+  num_chains: 5      # Number of chains used for PhyloWGS 
+  parallel_limit: 50  # Maximum number of parallel jobs in SLURM array (conservative for multi-patient)
+
+# Step 4: Marker selection configuration
+marker_selection:
+  read_depth: 1500
+
+# HPC/SLURM configuration
+hpc:
+  # Step-specific resource allocation
+  bootstrap:
+    partition: "pool1"
+    cpus_per_task: 2        # Conservative CPU allocation for multi-patient
+    memory: "8G"            # Reduced memory for multi-patient efficiency
+    walltime: "02:00:00"
+  
+  phylowgs:
+    partition: "pool1" 
+    cpus_per_task: 5
+    memory: "8G"
+    walltime: "04:00:00"    # Reduced from 12h for multi-patient efficiency
+  
+  aggregation:
+    partition: "pool1"
+    cpus_per_task: 1  
+    memory: "16G"
+    walltime: "02:00:00"    # Reduced from 4h for multi-patient efficiency
+  
+  marker_selection:
+    partition: "pool1"
+    cpus_per_task: 1
+    memory: "16G" 
+    walltime: "02:00:00"    # Reduced from 6h for multi-patient efficiency
+    modules: ["gurobi1102"]  # make sure to load your version of gurobi here

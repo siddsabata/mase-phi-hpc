@@ -1,12 +1,6 @@
 #!/bin/bash
-#
-# Longitudinal cancer evolution analysis SLURM script - YAML CONFIG MODE (v2.0)
-# Uses longitudinal_main.py with modular, simplified architecture
-#
-#SBATCH --job-name=longitudinal_yaml_analysis
-#SBATCH --partition=pool1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem=16G
+# Longitudinal cancer evolution analysis using YAML configuration
+# Usage: sbatch longitudinal_analysis_yaml.sh <config_yaml_file> [additional_flags] [slurm_log_suffix]
 
 set -e
 
@@ -95,20 +89,7 @@ echo "Gurobi module loaded successfully."
 LOG_DIR="${OUTPUT_BASE}/logs"
 mkdir -p "${LOG_DIR}"
 
-# Create log file names with optional suffix
-if [ -n "$LOG_SUFFIX" ]; then
-    LOG_FILE="${LOG_DIR}/longitudinal_yaml_analysis_${LOG_SUFFIX}.log"
-    ERR_FILE="${LOG_DIR}/longitudinal_yaml_analysis_${LOG_SUFFIX}.err"
-else
-    LOG_FILE="${LOG_DIR}/longitudinal_yaml_analysis.log"
-    ERR_FILE="${LOG_DIR}/longitudinal_yaml_analysis.err"
-fi
-
-# Redirect subsequent script output to log files
-exec > "$LOG_FILE" 2> "$ERR_FILE"
-
-# From this point, all output goes to the log files
-echo "--- Longitudinal YAML Analysis Script v2.0 Execution (output redirected) ---"
+echo "--- Longitudinal YAML Analysis Script v2.0 Execution ---"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Configuration file: $CONFIG_FILE"
 echo "Patient ID: $PATIENT_ID"
@@ -116,22 +97,15 @@ echo "Analysis mode: $ANALYSIS_MODE"
 echo "Code directory: $CODE_DIR"
 echo "Output base directory: $OUTPUT_BASE"
 echo "Additional flags: $ADDITIONAL_FLAGS"
-echo "Log file: $LOG_FILE"
-echo "Error file: $ERR_FILE"
 echo "---------------------------------------"
 
-# --- Environment Activation ---
-echo "Activating conda environment: markers_env" 
-source ~/miniconda3/bin/activate markers_env
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to activate conda environment 'markers_env'. Exiting."
-    exit 1
-fi
-echo "Conda environment activated."
+# --- Environment Setup ---
+echo "Using conda environment mase_phi_hpc..."
+cd "$CODE_DIR"
 
 # Verify Gurobi is accessible from Python
 echo "Verifying Gurobi is accessible from Python..."
-python -c "import gurobipy; print(f'Gurobi version: {gurobipy.gurobi.version()}')"
+conda run -n mase_phi_hpc python -c "import gurobipy; print(f'Gurobi version: {gurobipy.gurobi.version()}')"
 if [ $? -ne 0 ]; then
     echo "Error: Failed to import gurobipy or access Gurobi."
     exit 1
@@ -140,7 +114,7 @@ echo "Gurobi verification successful."
 
 # Verify required Python packages
 echo "Verifying required Python packages..."
-python -c "import pandas, numpy, matplotlib, yaml; print('Core packages: OK')"
+conda run -n mase_phi_hpc python -c "import pandas, numpy, matplotlib, yaml; print('Core packages: OK')"
 if [ $? -ne 0 ]; then
     echo "Error: Failed to import required Python packages."
     exit 1
@@ -163,7 +137,7 @@ echo "Running longitudinal analysis with YAML configuration (v2.0)..."
 echo "Command: python $LONGITUDINAL_SCRIPT_PATH --config $CONFIG_FILE $ADDITIONAL_FLAGS"
 
 # Execute the Python script with YAML configuration
-python "$LONGITUDINAL_SCRIPT_PATH" --config "$CONFIG_FILE" $ADDITIONAL_FLAGS
+conda run -n mase_phi_hpc python "$LONGITUDINAL_SCRIPT_PATH" --config "$CONFIG_FILE" $ADDITIONAL_FLAGS
 
 SCRIPT_EXIT_CODE=$?
 if [ $SCRIPT_EXIT_CODE -eq 0 ]; then
@@ -184,9 +158,6 @@ echo ""
 echo "Key output files will be in subdirectories of: ${OUTPUT_BASE}"
 echo "  - ${ANALYSIS_MODE}_marker_analysis/: Analysis results"
 echo "  - logs/: Detailed execution logs"
-echo ""
-echo "Analysis logs: ${LOG_FILE}"
-echo "Error logs: ${ERR_FILE}"
 echo ""
 echo "Primary SLURM job log is in the submission directory (slurm-$SLURM_JOB_ID.out)."
 echo "--- Longitudinal YAML Analysis Script v2.0 End ---" 
