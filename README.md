@@ -35,6 +35,9 @@ The pipeline consists of 4 main steps:
 Edit `configs/config_single.yaml` with your paths and settings.
 
 ### Execution
+
+**Important**: Use absolute paths for all arguments to avoid path resolution issues.
+
 ```bash
 bash scripts/run_pipeline.sh configs/config_single.yaml
 ```
