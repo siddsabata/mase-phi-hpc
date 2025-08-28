@@ -2,17 +2,17 @@
 # Complete configuration for steps 1-4: Bootstrap → PhyloWGS → Aggregation → Marker Selection
 
 # Patient and analysis identification
-patient_id: "CRUK0044"
+patient_id: "ppi_115"
 analysis_type: "standard"  # Options: standard, test, high_depth
 
 # Input files and directories - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
 input:
-  ssm_file: "/home/ssabata/mase-phi-hpc/data/input/ssm.txt"
+  ssm_file: "/home/ssabata/mase-phi-hpc/data/vaf_filter_test/ssm_ppi_115.txt"
   code_dir: "/home/ssabata/mase-phi-hpc/"  # Base directory of the TracerX-MP repository
 
 # Output configuration
 output:
-  base_dir: "/home/ssabata/patient_data/mamba_test/"  # Patient base directory
+  base_dir: "/home/ssabata/patient_data/filter_test/"  # Patient base directory
   create_subdirs: true
   log_level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
 
