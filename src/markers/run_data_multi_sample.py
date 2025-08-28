@@ -7,7 +7,7 @@ compatibility with the original marker selection algorithms and tree distributio
 """
 
 from optimize import *
-from optimize_fraction import *
+from optimize_fraction import select_markers_tree_gp
 # Note: VAF filtering now handled in bootstrap stage, no need for convert_ssm
 import pandas as pd
 import pickle
@@ -162,30 +162,8 @@ def main():
     # Tree compatibility is guaranteed since bootstrap, PhyloWGS, and marker selection
     # all use the same pre-filtered mutation set from the bootstrap stage
 
-    # Create gene names exactly as in old code
-    gene_name_list = []
-    gene_count = {}
-
-    for i in range(inter.shape[0]):
-        gene = calls.iloc[i]["Hugo_Symbol"]
-        ref = calls.iloc[i]["Reference_Allele"]
-        alt = calls.iloc[i]["Allele"]
-        
-        if pd.isna(gene) or not isinstance(gene, str):
-            # If no gene name, create a label with chromosome, position, and mutation
-            chrom = str(calls.iloc[i]["Chromosome"])
-            pos = str(calls.iloc[i]["Start_Position"])
-            gene = f"Chr{chrom}:{pos}({ref}>{alt})"
-        else:
-            # If gene name exists, add mutation info and handle duplicates
-            mutation = f"({ref}>{alt})"
-            gene_with_mut = f"{gene}{mutation}"
-            if gene_with_mut in gene_name_list:
-                gene_count[gene_with_mut] = gene_count.get(gene_with_mut, 1) + 1
-                gene = f"{gene_with_mut}_{gene_count[gene_with_mut]}"
-            else:
-                gene = gene_with_mut
-        gene_name_list.append(gene)
+    # Use original SSM gene identifiers directly (already informative)
+    gene_name_list = ssm_df['gene'].tolist()
 
     print(f"Created gene names: {len(gene_name_list)} entries")
     print("Sample gene names:", gene_name_list[:5])
@@ -221,77 +199,12 @@ def main():
         f.write(f"Marker Selection Results for Patient {patient}\n")
         f.write("=" * 50 + "\n")
         f.write(f"Input (pre-filtered): {ssm_file_path}\n")
-        f.write(f"Note: VAF filtering (threshold=0.9, any_high strategy) applied in bootstrap stage\n")
         f.write(f"Mutations in analysis: {len(gene_list)}\n")
         f.write(f"Read depth: {read_depth}\n\n")
 
-    # Method 1: Tracing fractions
-    print("Running Method 1: Tracing fractions...")
-    print(f"Will iterate through {len(gene_name_list)} marker counts (1 to {len(gene_name_list)})")
-    selected_markers1_genename_ordered = []
-    obj1_ordered = []
+    # Tree-based marker selection using two optimization strategies
 
-    for n_markers in range(1, len(gene_name_list) + 1):
-        selected_markers1, obj = select_markers_fractions_weighted_overall(
-            gene_list, n_markers, tree_list, node_list_scrub, 
-            clonal_freq_list_scrub, gene2idx, tree_freq_list)
-        
-        # Handle case where optimization failed and returned empty results
-        if not selected_markers1 or any(pd.isna([obj])):
-            print(f"Warning: Optimization failed for n_markers={n_markers}. Skipping this iteration.")
-            print(f"Selected markers: {selected_markers1}, Objective: {obj}")
-            break
-            
-        selected_markers1_genename = [gene_name_list[int(i[1:])] for i in selected_markers1]
-        obj1_ordered.append(obj)
-        
-        if len(selected_markers1_genename) == 1:
-            selected_markers1_genename_ordered.append(selected_markers1_genename[0])
-        else:
-            diff_set = set(selected_markers1_genename).difference(set(selected_markers1_genename_ordered))
-            if diff_set:  # Check if diff_set is not empty
-                selected_markers1_genename_ordered.append(list(diff_set)[0])
-            else:
-                print(f"Warning: No new markers found for n_markers={n_markers}. This may indicate optimization issues.")
-                # Use the first marker from selected_markers1_genename as fallback
-                if selected_markers1_genename:
-                    selected_markers1_genename_ordered.append(selected_markers1_genename[0])
-                else:
-                    print(f"Error: No markers selected for n_markers={n_markers}. Breaking loop.")
-                    break
-    
-    # Save Method 1 results
-    print(f"Method 1 completed with {len(selected_markers1_genename_ordered)} successful iterations out of {len(gene_name_list)} attempted")
-    
-    with open(results_file, 'a') as f:
-        f.write("Method 1 (Tracing Fractions) Results:\n")
-        f.write("-" * 40 + "\n")
-        f.write(f"Completed {len(selected_markers1_genename_ordered)} iterations out of {len(gene_name_list)} attempted\n")
-        for i, (marker, obj) in enumerate(zip(selected_markers1_genename_ordered, obj1_ordered), 1):
-            # Get the index of this marker in gene_name_list
-            marker_idx = gene_name_list.index(marker)
-            # Get position info
-            chrom = str(calls.iloc[marker_idx]["Chromosome"])
-            pos = str(calls.iloc[marker_idx]["Start_Position"])
-            f.write(f"{i}. {marker} [Chr{chrom}:{pos}]: {obj}\n")
-        f.write("\n")
-
-    # Plot Method 1 results (only if we have results)
-    if selected_markers1_genename_ordered and obj1_ordered:
-        position1 = list(range(len(obj1_ordered)))
-        plt.figure(figsize=(8, 5))
-        plt.plot(position1, obj1_ordered, 'o-', label='tracing-fractions')
-        plt.xticks(position1, selected_markers1_genename_ordered, rotation=30)
-        plt.legend()
-        plt.title(f'Patient {patient} - Tracing Fractions (VAF Pre-filtered)')
-        plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, f'{patient}_tracing_subclones.png'), format='png', dpi=300, bbox_inches='tight')
-        plt.close()
-        print("Method 1 plot saved successfully")
-    else:
-        print("Warning: No Method 1 results to plot")
-
-    # Method 2: Tree-based selection with different parameters
+    # Tree-based selection with two optimization strategies
     for lam1, lam2 in [(1, 0), (0, 1)]:
         print(f"Running Method 2: Tree-based selection (lam1={lam1}, lam2={lam2})...")
         selected_markers2_genename_ordered = []
@@ -327,17 +240,17 @@ def main():
                         print(f"Error: No markers selected for n_markers={n_markers} (lam1={lam1}, lam2={lam2}). Breaking loop.")
                         break
 
-        # Save Method 2 results
+        # Save Method 2 results with descriptive headers
         with open(results_file, 'a') as f:
-            f.write(f"\nMethod 2 Results (lam1={lam1}, lam2={lam2}):\n")
+            if lam1 == 1 and lam2 == 0:
+                f.write(f"\nλ1=1, λ2=0 (Pure Fraction Optimization):\n")
+            elif lam1 == 0 and lam2 == 1:
+                f.write(f"\nλ1=0, λ2=1 (Pure Structure Optimization):\n")
+            else:
+                f.write(f"\nλ1={lam1}, λ2={lam2} (Mixed Optimization):\n")
             f.write("-" * 40 + "\n")
             for i, (marker, (obj_frac, obj_struct)) in enumerate(zip(selected_markers2_genename_ordered, obj2_ordered), 1):
-                # Get the index of this marker in gene_name_list
-                marker_idx = gene_name_list.index(marker)
-                # Get position info
-                chrom = str(calls.iloc[marker_idx]["Chromosome"])
-                pos = str(calls.iloc[marker_idx]["Start_Position"])
-                f.write(f"{i}. {marker} [Chr{chrom}:{pos}]: fraction={obj_frac}, structure={obj_struct}\n")
+                f.write(f"{i}. {marker}: fraction={obj_frac}, structure={obj_struct}\n")
             f.write("\n")
 
         obj2_frac_ordered = [obj2_ordered[i][0] for i in range(len(obj2_ordered))]
