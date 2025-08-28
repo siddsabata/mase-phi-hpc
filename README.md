@@ -1,224 +1,101 @@
-# TracerX Phylogenetic Analysis Pipeline
+# TracerX Marker Selection Pipeline
 
-A comprehensive computational pipeline for phylogenetic analysis and marker selection in cancer genomics research.
+A phylogenetic analysis pipeline for cancer genomics that processes mutation data (SSM files) through bootstrap sampling, phylogenetic tree inference, aggregation, and marker selection.
 
-## 📁 Project Structure
+## Installation
 
-```
-├── src/                    # Source code organized by analysis stage
-│   ├── bootstrap/          # Data bootstrapping and sampling
-│   ├── phylowgs/           # Phylogenetic tree inference
-│   ├── aggregation/        # Result aggregation and visualization
-│   ├── markers/            # Marker selection and optimization
-│   ├── longitudinal/       # Longitudinal analysis and tracking
-│   └── common/             # Shared utilities and libraries
-├── scripts/                # Main execution scripts
-│   ├── run_pipeline.sh     # Main pipeline orchestration
-│   ├── multi_patient.sh    # Multi-patient batch processing
-│   └── install.sh          # Installation script
-├── configs/                # Configuration files
-│   ├── analysis/           # Analysis-specific configurations
-│   └── templates/          # Template configurations
-├── data/                   # Data files
-│   ├── input/              # Input data files
-│   ├── test/               # Test datasets
-│   └── raw/                # Raw data batches
-└── docs/                   # Documentation
-```
+### Requirements
+- **Conda is required** - Install [Miniforge](https://github.com/conda-forge/miniforge) (recommended) or Miniconda
+- SLURM workload manager
+- Gurobi optimization software (for marker selection)
 
-## 🚀 Quick Start
-
-### Prerequisites
-- High-Performance Computing (HPC) cluster with SLURM
-- Conda package manager
-- Python 3.x
-- PhyloWGS software (installed via `scripts/install.sh`)
-
-### Installation
+### Quick Setup
 ```bash
-# Clone the repository
+# Clone repository
 git clone <repository-url>
-cd tracerx-mp
+cd mase-phi-hpc
 
-# Install PhyloWGS
+# Install pipeline (creates environments and dependencies)
 bash scripts/install.sh
-
-# Set up conda environments (one for each stage)
-# See individual environment.yml files in each src/ subdirectory
 ```
 
-### Running the Pipeline
+The installer automatically uses `mamba` for faster environment creation (10-100x speedup) if available, with fallback to `conda`.
 
-#### Single Patient Analysis
+## Pipeline Overview
+
+The pipeline consists of 4 main steps:
+1. **Bootstrap**: Generate multiple bootstrap samples from mutation data with VAF filtering
+2. **PhyloWGS**: Phylogenetic tree inference using MCMC
+3. **Aggregation**: Combine bootstrap results and create visualizations  
+4. **Marker Selection**: Select optimal genetic markers using two optimization strategies
+
+## Single Patient Processing
+
+### Configuration
+Edit `configs/config_single.yaml` with your paths and settings.
+
+### Execution
 ```bash
-# Using configuration file
-bash scripts/run_pipeline.sh configs/analysis/standard_analysis.yaml
-
-# Dry run to test configuration
-bash scripts/run_pipeline.sh configs/analysis/test_analysis.yaml --dry-run
+bash scripts/run_pipeline.sh configs/config_single.yaml
 ```
 
-#### Multi-Patient Batch Processing
-```bash
-# Process multiple patients
-bash scripts/multi_patient.sh data/input/ configs/analysis/template_multi_patient.yaml /path/to/output/
-
-# With delays between submissions
-bash scripts/multi_patient.sh data/input/ configs/analysis/template_multi_patient.yaml /path/to/output/ --delay=60
+### Output Structure
+```
+{base_dir}/{patient_id}/initial/
+├── ssm_filtered.txt        # VAF-filtered mutations
+├── bootstraps/             # Bootstrap samples with PhyloWGS results
+├── aggregation_results/    # Combined tree structures  
+├── markers/               # Marker selection results
+└── logs/                  # Pipeline logs
 ```
 
-#### Longitudinal Analysis
+## Multi-Patient Processing
+
+### Configuration  
+Edit `configs/config_multi.yaml` with your settings.
+
+### Execution
 ```bash
-cd src/longitudinal
-python longitudinal_main.py --config configs/templates/cruk0044_fixed_markers.yaml
+bash scripts/multi_patient.sh <ssm_directory> configs/config_multi.yaml <output_base_directory>
+
+# With delay between submissions (recommended for large batches)
+bash scripts/multi_patient.sh data/patients/ configs/config_multi.yaml /results/ --delay=60
 ```
 
-## 🔧 Configuration
+### Input Structure
+```
+data/patients/
+├── patient_001.txt
+├── patient_002.txt  
+└── patient_003.txt
+```
 
-### Analysis Configurations (`configs/analysis/`)
-- `standard_analysis.yaml` - Production analysis (100 bootstraps)
-- `test_analysis.yaml` - Development/testing (20 bootstraps)
-- `high_depth_analysis.yaml` - Research-grade analysis (500 bootstraps)
+### Output Structure
+```
+/results/
+├── patients/              
+│   ├── patient_001/initial/    # Individual pipeline results
+│   ├── patient_002/initial/
+│   └── patient_003/initial/
+├── configs/generated/          # Auto-generated patient configs
+└── logs/                       # Multi-patient orchestration logs
+```
 
-### Template Configurations (`configs/templates/`)
-- `template_multi_patient.yaml` - Multi-patient processing template
-- `cruk0044_fixed_markers.yaml` - Fixed marker longitudinal analysis
-- `cruk0044_dynamic.yaml` - Dynamic marker longitudinal analysis
+## Marker Selection Output
 
-## 🔬 Pipeline Stages
+- **λ1=1, λ2=0 (Pure Fraction Optimization)**: Optimizes for VAF-based marker selection (best for clone frequency tracking)
+- **λ1=0, λ2=1 (Pure Structure Optimization)**: Optimizes for phylogenetic tree structure differences (best for phylogenetic reconstruction)
 
-### 1. Bootstrap (`src/bootstrap/`)
-- **Purpose**: Generate multiple bootstrap samples from mutation data
-- **Input**: SSM (Somatic Single Mutation) files
-- **Output**: Bootstrap samples for phylogenetic analysis
+## Job Monitoring
 
-### 2. PhyloWGS (`src/phylowgs/`)
-- **Purpose**: Phylogenetic tree inference using PhyloWGS
-- **Input**: Bootstrap samples
-- **Output**: Phylogenetic trees and mutation assignments
-
-### 3. Aggregation (`src/aggregation/`)
-- **Purpose**: Aggregate results and create visualizations
-- **Input**: Phylogenetic trees from multiple bootstraps
-- **Output**: Best tree structures and visualization plots
-
-### 4. Markers (`src/markers/`)
-- **Purpose**: Select optimal genetic markers
-- **Input**: Aggregated results and original mutation data
-- **Output**: Selected marker lists and optimization results
-
-### 5. Longitudinal (`src/longitudinal/`)
-- **Purpose**: Temporal cancer evolution tracking
-- **Input**: Tissue data and longitudinal blood samples
-- **Output**: Updated tree distributions and temporal analyses
-
-## 📊 Data Organization
-
-### Input Data (`data/input/`)
-- SSM files containing mutation data
-- Patient-specific datasets
-- Configuration-specific input files
-
-### Test Data (`data/test/`)
-- Small test datasets for development
-- Validation datasets
-- Example input files
-
-### Raw Data (`data/raw/`)
-- Unprocessed batch data
-- Original sequencing results
-- Archive of historical datasets
-
-## 🔍 Monitoring and Logging
-
-### Job Monitoring
 ```bash
-# Check job status
+# Check SLURM job status
 squeue -u $USER
-
-# Monitor logs
-tail -f /path/to/patient/initial/logs/pipeline_master.log
-
-# Check specific stage logs
-tail -f /path/to/patient/initial/logs/slurm_bootstrap_*.out
 ```
 
-### Log Files
-- `pipeline_master.log` - Main pipeline orchestration
-- `slurm_*.out` - SLURM standard output
-- `slurm_*.err` - SLURM error output
-- Stage-specific logs in respective output directories
+## Troubleshooting
 
-## 🛠️ Development
-
-### Code Organization
-- Each stage is modular and can be run independently
-- Consistent naming: `stepN_purpose.py` for Python scripts
-- Comprehensive error handling and logging
-- YAML-based configuration system
-
-### Testing
-```bash
-# Run test configuration
-bash scripts/run_pipeline.sh configs/analysis/test_analysis.yaml --dry-run
-
-# Test multi-patient processing
-bash scripts/multi_patient.sh data/test/ configs/analysis/template_multi_patient_test.yaml /tmp/test_output/ --dry-run
-```
-
-## 📈 Performance Optimization
-
-### Resource Allocation
-- Stage-specific SLURM resource configurations
-- Automatic scaling based on dataset size
-- Efficient job dependency management
-
-### Parallel Processing
-- Bootstrap stages run in parallel
-- Optimized memory usage per stage
-- Configurable CPU and memory allocation
-
-## 🆘 Troubleshooting
-
-### Common Issues
-1. **Path Resolution**: Ensure all paths are absolute when running on SLURM
-2. **Environment Issues**: Verify conda environments are properly activated
-3. **Permission Errors**: Check file permissions in output directories
-4. **Memory Issues**: Adjust memory allocation in configuration files
-
-### Support
-- Check logs in the respective `logs/` directories
-- Review configuration files for parameter issues
-- Verify input data format and completeness
-
-## 📝 Citation
-
-If you use this pipeline in your research, please cite:
-
-```
-[Add citation information here]
-```
-
-## 🔄 Changelog
-
-### Version 2.0.0 (Current)
-- **Major restructuring**: Organized code into logical directories
-- **Enhanced configuration**: YAML-based configuration system
-- **Improved documentation**: Comprehensive README and inline documentation
-- **Multi-patient support**: Batch processing capabilities
-- **Longitudinal analysis**: Temporal evolution tracking
-
-### Previous Versions
-- See `docs/changelog.md` for detailed version history
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests and documentation
-5. Submit a pull request
-
-## 📄 License
-
-[Add license information here]
+- Ensure Gurobi modules are loaded correctly in HPC configuration
+- Check that SSM files have required columns: `id`, `gene`, `a`, `d`, `mu_r`, `mu_v`  
+- Verify sufficient disk space for bootstrap samples and tree results
+- Review stage-specific logs for detailed error information
