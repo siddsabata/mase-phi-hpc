@@ -55,11 +55,14 @@ bash scripts/run_pipeline.sh configs/config_single.yaml
 Edit `configs/config_multi.yaml` with your settings.
 
 ### Execution
-```bash
-bash scripts/multi_patient.sh <ssm_directory> configs/config_multi.yaml <output_base_directory>
+**Important**: Use absolute paths for all arguments to avoid path resolution issues.
 
-# With delay between submissions (recommended for large batches)
-bash scripts/multi_patient.sh data/patients/ configs/config_multi.yaml /results/ --delay=60
+```bash
+# Use absolute paths for all arguments
+bash scripts/multi_patient.sh /full/path/to/ssm_directory /full/path/to/configs/config_multi.yaml /full/path/to/output_directory
+
+# Example with absolute paths
+bash scripts/multi_patient.sh /data/patients/ /home/user/mase-phi-hpc/configs/config_multi.yaml /results/ --delay=60
 ```
 
 ### Input Structure
