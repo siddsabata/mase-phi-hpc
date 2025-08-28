@@ -1,9 +1,10 @@
-# TracerX Marker Selection Pipeline - Multi-Patient Template
-# This template is used by multi_patient.sh to generate patient-specific configs
-# Placeholders will be replaced automatically during multi-patient processing
+# TracerX Marker Selection Pipeline - Multi-Patient Production Template
+# This template is used by multi_patient_pipeline.sh to generate patient-specific configs
+# Conservative resource settings optimized for multi-patient workloads
 
 # Patient and analysis identification (will be replaced with actual patient ID)
 patient_id: "PLACEHOLDER_PATIENT_ID"
+analysis_type: "multi_patient"
 
 # Input files and directories (placeholders will be replaced automatically)
 input:
@@ -13,19 +14,36 @@ input:
 # Output configuration (patient directory will be created automatically)
 output:
   base_dir: "PLACEHOLDER_OUTPUT_DIR"    # Patient-specific output directory
+  create_subdirs: true
+  log_level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
 
 # Step 1: Bootstrap configuration
 bootstrap:
   num_bootstraps: 100  # Standard number of bootstrap samples for production
+  random_seed: null    # Set to null for random seeds (recommended for production)
 
 # Step 2: PhyloWGS configuration  
 phylowgs:
   num_chains: 5        # Number of MCMC chains to run
   parallel_limit: 10   # Conservative limit for multi-patient workloads (vs 50 for single)
 
+# Step 3: Aggregation configuration
+aggregation:
+  method: "phylowgs"
+  generate_visualizations: true
+  sample_prefix: "Region"  # Prefix for sample names in visualizations
+  custom_sample_names: []  # Optional: ["Tumor_Primary", "Tumor_Met1", "Tumor_Met2"]
+
 # Step 4: Marker selection configuration
 marker_selection:
   read_depth: 1500
+  # Note: VAF filtering (threshold=0.9, any_high strategy) now applied in bootstrap stage
+  
+  # Optimization parameters
+  optimization:
+    lambda1_values: [1.0, 0.0]  # Test both fraction and structure optimization
+    lambda2_values: [0.0, 1.0]  # Corresponds to lambda1_values
+    max_iterations: null        # null = all possible markers
 
 # HPC/SLURM configuration - Conservative settings for multi-patient workload
 hpc:
@@ -35,22 +53,40 @@ hpc:
     cpus_per_task: 2        # Conservative CPU allocation
     memory: "8G"            # Reduced from 16G for multi-patient efficiency
     walltime: "02:00:00"    # Standard walltime
+    conda_env: "preprocess_env"
   
   phylowgs:
     partition: "pool1" 
-    cpus_per_task: 5        # Standard CPU allocation
+    cpus_per_task: 5        # Reduced from 5 for multi-patient efficiency
     memory: "8G"            # Standard memory allocation
     walltime: "04:00:00"    # Reduced from 12h for faster multi-patient throughput
+    conda_env: "phylowgs_env"
+    array_throttle: 10      # Conservative throttling for multi-patient (vs 50)
   
   aggregation:
     partition: "pool1"
     cpus_per_task: 1  
     memory: "16G"           # Higher memory for aggregation
     walltime: "02:00:00"    # Reduced from 4h for multi-patient efficiency
+    conda_env: "aggregation_env"
   
   marker_selection:
     partition: "pool1"
     cpus_per_task: 1
     memory: "16G"           # Higher memory for optimization
     walltime: "02:00:00"    # Reduced from 6h for multi-patient efficiency
+    conda_env: "markers_env"
     modules: ["gurobi1102"]  # Required modules to load
+
+# Validation and debugging
+validation:
+  validate_inputs: true
+  check_dependencies: true
+  debug_mode: false       # Disable debug mode for multi-patient (reduces log volume)
+
+# Pipeline orchestration
+orchestration:
+  run_sequential: false    # Use job dependencies (standard approach)
+  cleanup_temp_files: true  # Clean up to save disk space with multiple patients
+  save_intermediate: true    # Save intermediate results
+  email_notifications: false # Disable email for multi-patient to avoid spam 
