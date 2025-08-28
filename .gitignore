@@ -79,18 +79,6 @@ slurm-*.err
 *.o[0-9]*
 *.e[0-9]*
 
-# Data Files (typically large, store elsewhere)
-*.csv
-*.tsv
-*.txt
-*.gz
-*.zip
-*.tar
-*.tar.gz
-!requirements.txt
-!**/test*.txt
-!**/example*.txt
-
 # Conda Environments (don't commit actual environments)
 envs/
 .conda/
