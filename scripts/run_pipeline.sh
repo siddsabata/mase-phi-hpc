@@ -4,36 +4,36 @@
 # Usage: bash run_pipeline.sh config.yaml
 # Example: bash run_pipeline.sh configs/analysis/test_analysis.yaml
 
-set -e  # Exit on any error
+set -e # Exit on any error
 
 # --- Setup conda environment for YAML parsing ---
 echo "Using conda environment for YAML parsing..."
-cd "$( dirname "${BASH_SOURCE[0]}" )/.."  # Change to repo root
+cd "$(dirname "${BASH_SOURCE[0]}")/.." # Change to repo root
 
 # --- Input Validation ---
 if [ "$#" -ne 1 ]; then
-    echo "Error: Incorrect number of arguments."
-    echo "Usage: $0 <config.yaml>"
-    echo "Example: bash $0 configs/analysis/standard_analysis.yaml"
-    exit 1
+  echo "Error: Incorrect number of arguments."
+  echo "Usage: $0 <config.yaml>"
+  echo "Example: bash $0 configs/analysis/standard_analysis.yaml"
+  exit 1
 fi
 
 CONFIG_FILE=$1
 
 # --- Get script directory for absolute paths ---
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 echo "Pipeline script directory: ${SCRIPT_DIR}"
 
 # --- Validate Configuration File ---
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Error: Configuration file not found: $CONFIG_FILE"
-    exit 1
+  echo "Error: Configuration file not found: $CONFIG_FILE"
+  exit 1
 fi
 
 # Convert to absolute path
 if [[ ! "$CONFIG_FILE" = /* ]]; then
-    CONFIG_FILE="${SCRIPT_DIR}/${CONFIG_FILE}"
-    echo "Converted config file path to absolute: ${CONFIG_FILE}"
+  CONFIG_FILE="${SCRIPT_DIR}/${CONFIG_FILE}"
+  echo "Converted config file path to absolute: ${CONFIG_FILE}"
 fi
 
 # --- Load Configuration Using Python ---
@@ -41,11 +41,11 @@ echo "Loading configuration from: ${CONFIG_FILE}"
 
 # Parse configuration and source the variables
 TEMP_VARS_FILE=$(mktemp)
-conda run -n mase_phi_hpc python "${SCRIPT_DIR}/parse_config.py" "$CONFIG_FILE" > "$TEMP_VARS_FILE"
+conda run -n mase_phi_hpc python "${SCRIPT_DIR}/parse_config.py" "$CONFIG_FILE" >"$TEMP_VARS_FILE"
 if [ $? -ne 0 ]; then
-    echo "Error: Failed to parse configuration file"
-    rm -f "$TEMP_VARS_FILE"
-    exit 1
+  echo "Error: Failed to parse configuration file"
+  rm -f "$TEMP_VARS_FILE"
+  exit 1
 fi
 
 source "$TEMP_VARS_FILE"
@@ -53,28 +53,28 @@ rm -f "$TEMP_VARS_FILE"
 
 # --- Validate Required Configuration ---
 if [ -z "$PATIENT_ID" ] || [ -z "$INPUT_SSM_FILE" ] || [ -z "$CODE_DIR" ] || [ -z "$PATIENT_BASE_DIR" ]; then
-    echo "Error: Missing required configuration parameters:"
-    echo "  PATIENT_ID: '$PATIENT_ID'"
-    echo "  INPUT_SSM_FILE: '$INPUT_SSM_FILE'"
-    echo "  CODE_DIR: '$CODE_DIR'"
-    echo "  PATIENT_BASE_DIR: '$PATIENT_BASE_DIR'"
-    exit 1
+  echo "Error: Missing required configuration parameters:"
+  echo "  PATIENT_ID: '$PATIENT_ID'"
+  echo "  INPUT_SSM_FILE: '$INPUT_SSM_FILE'"
+  echo "  CODE_DIR: '$CODE_DIR'"
+  echo "  PATIENT_BASE_DIR: '$PATIENT_BASE_DIR'"
+  exit 1
 fi
 
 # --- Convert Paths to Absolute ---
 if [[ ! "$INPUT_SSM_FILE" = /* ]]; then
-    INPUT_SSM_FILE="${SCRIPT_DIR}/${INPUT_SSM_FILE}"
-    echo "Converted input SSM file path to absolute: ${INPUT_SSM_FILE}"
+  INPUT_SSM_FILE="${SCRIPT_DIR}/${INPUT_SSM_FILE}"
+  echo "Converted input SSM file path to absolute: ${INPUT_SSM_FILE}"
 fi
 
 if [[ ! "$CODE_DIR" = /* ]]; then
-    CODE_DIR="${SCRIPT_DIR}/${CODE_DIR}"
-    echo "Converted code directory path to absolute: ${CODE_DIR}"
+  CODE_DIR="${SCRIPT_DIR}/${CODE_DIR}"
+  echo "Converted code directory path to absolute: ${CODE_DIR}"
 fi
 
 if [[ ! "$PATIENT_BASE_DIR" = /* ]]; then
-    PATIENT_BASE_DIR="${SCRIPT_DIR}/${PATIENT_BASE_DIR}"
-    echo "Converted patient base directory path to absolute: ${PATIENT_BASE_DIR}"
+  PATIENT_BASE_DIR="${SCRIPT_DIR}/${PATIENT_BASE_DIR}"
+  echo "Converted patient base directory path to absolute: ${PATIENT_BASE_DIR}"
 fi
 
 # --- Normalize PATIENT_BASE_DIR (remove trailing slashes) ---
@@ -82,33 +82,33 @@ PATIENT_BASE_DIR=$(echo "${PATIENT_BASE_DIR}" | sed 's:/*$::')
 
 # --- Validate Input Files/Directories ---
 if [ ! -f "$INPUT_SSM_FILE" ]; then
-    echo "Error: Input SSM file not found: $INPUT_SSM_FILE"
-    exit 1
+  echo "Error: Input SSM file not found: $INPUT_SSM_FILE"
+  exit 1
 fi
 
 if [ ! -d "$CODE_DIR" ]; then
-    echo "Error: Code directory not found: $CODE_DIR"
-    exit 1
+  echo "Error: Code directory not found: $CODE_DIR"
+  exit 1
 fi
 
 # --- Setup Directory Structure ---
 setup_directories() {
-    # Define directory structure
-    INITIAL_DIR="${PATIENT_BASE_DIR}/initial"
-    BOOTSTRAP_STAGE_OUTPUT_DIR="${INITIAL_DIR}"
-    BOOTSTRAPS_DATA_DIR="${BOOTSTRAP_STAGE_OUTPUT_DIR}/bootstraps"
-    AGGREGATION_RESULTS_DIR="${BOOTSTRAP_STAGE_OUTPUT_DIR}/aggregation_results"
-    MARKERS_DIR="${BOOTSTRAP_STAGE_OUTPUT_DIR}/markers"
-    LOG_DIR="${INITIAL_DIR}/logs"
-    
-    # Create required directories
-    mkdir -p "${PATIENT_BASE_DIR}"
-    mkdir -p "${INITIAL_DIR}"
-    mkdir -p "${BOOTSTRAPS_DATA_DIR}"
-    mkdir -p "${AGGREGATION_RESULTS_DIR}"
-    mkdir -p "${MARKERS_DIR}"
-    mkdir -p "${LOG_DIR}"
-    mkdir -p "${LOG_DIR}/phylowgs"
+  # Define directory structure
+  INITIAL_DIR="${PATIENT_BASE_DIR}/initial"
+  BOOTSTRAP_STAGE_OUTPUT_DIR="${INITIAL_DIR}"
+  BOOTSTRAPS_DATA_DIR="${BOOTSTRAP_STAGE_OUTPUT_DIR}/bootstraps"
+  AGGREGATION_RESULTS_DIR="${BOOTSTRAP_STAGE_OUTPUT_DIR}/aggregation_results"
+  MARKERS_DIR="${BOOTSTRAP_STAGE_OUTPUT_DIR}/markers"
+  LOG_DIR="${INITIAL_DIR}/logs"
+
+  # Create required directories
+  mkdir -p "${PATIENT_BASE_DIR}"
+  mkdir -p "${INITIAL_DIR}"
+  mkdir -p "${BOOTSTRAPS_DATA_DIR}"
+  mkdir -p "${AGGREGATION_RESULTS_DIR}"
+  mkdir -p "${MARKERS_DIR}"
+  mkdir -p "${LOG_DIR}"
+  mkdir -p "${LOG_DIR}/phylowgs"
 }
 
 setup_directories
@@ -131,121 +131,121 @@ echo "----------------------------------------"
 
 # --- Function to Submit Job with YAML Configuration ---
 submit_job_yaml() {
-    local job_name=$1
-    local dependency=$2
-    local script_path=$3
-    shift 3
-    local args=("$@")
+  local job_name=$1
+  local dependency=$2
+  local script_path=$3
+  shift 3
+  local args=("$@")
 
-    local script_containing_dir
-    script_containing_dir=$(dirname "$script_path")
-    
-    local dependency_flag=""
-    if [ ! -z "$dependency" ]; then
-        dependency_flag="--dependency=afterok:${dependency}"
-    fi
-    
-    # Get step-specific HPC configuration
-    local partition cpus memory walltime
-    case "$job_name" in
-        "bootstrap")
-            partition="${BOOTSTRAP_PARTITION:-pool1}"
-            cpus="${BOOTSTRAP_CPUS:-1}"
-            memory="${BOOTSTRAP_MEMORY:-8G}"
-            walltime="${BOOTSTRAP_WALLTIME:-02:00:00}"
-            ;;
-        "phylowgs")
-            partition="${PHYLOWGS_PARTITION:-pool1}"
-            cpus="${PHYLOWGS_CPUS:-1}"
-            memory="${PHYLOWGS_MEMORY:-8G}"
-            walltime="${PHYLOWGS_WALLTIME:-02:00:00}"
-            ;;
-        "aggregation")
-            partition="${AGGREGATION_PARTITION:-pool1}"
-            cpus="${AGGREGATION_CPUS:-1}"
-            memory="${AGGREGATION_MEMORY:-8G}"
-            walltime="${AGGREGATION_WALLTIME:-02:00:00}"
-            ;;
-        "marker_selection")
-            partition="${MARKER_SELECTION_PARTITION:-pool1}"
-            cpus="${MARKER_SELECTION_CPUS:-1}"
-            memory="${MARKER_SELECTION_MEMORY:-8G}"
-            walltime="${MARKER_SELECTION_WALLTIME:-02:00:00}"
-            ;;
-        *)
-            partition="pool1"
-            cpus="1"
-            memory="8G"
-            walltime="02:00:00"
-            ;;
-    esac
-    
-    echo "Submitting ${job_name} with configuration:" >&2
-    echo "  Partition: ${partition}" >&2
-    echo "  CPUs: ${cpus}" >&2
-    echo "  Memory: ${memory}" >&2
-    echo "  Walltime: ${walltime}" >&2
-    echo "  Script: ${script_path}" >&2
-    
-    # Build sbatch command array
-    local sbatch_cmd_array=(
-        sbatch --parsable
-        --chdir="${script_containing_dir}"
-        --job-name="${PATIENT_ID}_${job_name}"
-        --partition="${partition}"
-        --cpus-per-task="${cpus}"
-        --mem="${memory}"
-        --time="${walltime}"
-        --output="${LOG_DIR}/${job_name}.log"
-        --error="${LOG_DIR}/${job_name}.err"
-    )
-    
-    # Add dependency if specified
-    if [ ! -z "$dependency_flag" ]; then
-        # For jobs that depend on array jobs (like aggregation depending on phylowgs),
-        # use 'afterany' instead of 'afterok' to allow partial bootstrap failures
-        if [ "$job_name" = "aggregation" ] || [ "$job_name" = "marker_selection" ]; then
-            # These jobs depend on array jobs where some elements may fail (bootstraps)
-            # Use afterany to proceed when array job completes (regardless of individual element success)
-            local modified_dependency=$(echo "$dependency_flag" | sed 's/afterok/afterany/')
-            sbatch_cmd_array+=("$modified_dependency")
-        else
-            sbatch_cmd_array+=("$dependency_flag")
-        fi
-    fi
-    
-    # Add array configuration for phylowgs
-    if [ "$job_name" == "phylowgs" ]; then
-        local array_max=$((NUM_BOOTSTRAPS - 1))
-        sbatch_cmd_array+=("--array=0-${array_max}%${ARRAY_LIMIT}")
-        # Override output paths for array jobs to use phylowgs subfolder
-        # Remove the generic paths added earlier
-        for i in "${!sbatch_cmd_array[@]}"; do
-            if [[ "${sbatch_cmd_array[i]}" == "--output=${LOG_DIR}/${job_name}.log" ]]; then
-                sbatch_cmd_array[i]="--output=${LOG_DIR}/phylowgs/phylowgs_array_%A_%a.log"
-            elif [[ "${sbatch_cmd_array[i]}" == "--error=${LOG_DIR}/${job_name}.err" ]]; then
-                sbatch_cmd_array[i]="--error=${LOG_DIR}/phylowgs/phylowgs_array_%A_%a.err"
-            fi
-        done
-    fi
-    
-    sbatch_cmd_array+=("${script_path}")
-    sbatch_cmd_array+=("${args[@]}")
-    
-    # Execute sbatch command
-    local job_id_output
-    job_id_output=$("${sbatch_cmd_array[@]}")
-    local sbatch_status=$?
+  local script_containing_dir
+  script_containing_dir=$(dirname "$script_path")
 
-    if [ ${sbatch_status} -ne 0 ] || [ -z "${job_id_output}" ]; then
-        echo "Error: Failed to submit ${job_name} job. sbatch command exited with status ${sbatch_status}." >&2
-        echo "Script path attempted: ${script_path}" >&2
-        exit 1 
+  local dependency_flag=""
+  if [ ! -z "$dependency" ]; then
+    dependency_flag="--dependency=afterany:${dependency}"
+  fi
+
+  # Get step-specific HPC configuration
+  local partition cpus memory walltime
+  case "$job_name" in
+  "bootstrap")
+    partition="${BOOTSTRAP_PARTITION:-pool1}"
+    cpus="${BOOTSTRAP_CPUS:-1}"
+    memory="${BOOTSTRAP_MEMORY:-8G}"
+    walltime="${BOOTSTRAP_WALLTIME:-02:00:00}"
+    ;;
+  "phylowgs")
+    partition="${PHYLOWGS_PARTITION:-pool1}"
+    cpus="${PHYLOWGS_CPUS:-1}"
+    memory="${PHYLOWGS_MEMORY:-8G}"
+    walltime="${PHYLOWGS_WALLTIME:-02:00:00}"
+    ;;
+  "aggregation")
+    partition="${AGGREGATION_PARTITION:-pool1}"
+    cpus="${AGGREGATION_CPUS:-1}"
+    memory="${AGGREGATION_MEMORY:-8G}"
+    walltime="${AGGREGATION_WALLTIME:-02:00:00}"
+    ;;
+  "marker_selection")
+    partition="${MARKER_SELECTION_PARTITION:-pool1}"
+    cpus="${MARKER_SELECTION_CPUS:-1}"
+    memory="${MARKER_SELECTION_MEMORY:-8G}"
+    walltime="${MARKER_SELECTION_WALLTIME:-02:00:00}"
+    ;;
+  *)
+    partition="pool1"
+    cpus="1"
+    memory="8G"
+    walltime="02:00:00"
+    ;;
+  esac
+
+  echo "Submitting ${job_name} with configuration:" >&2
+  echo "  Partition: ${partition}" >&2
+  echo "  CPUs: ${cpus}" >&2
+  echo "  Memory: ${memory}" >&2
+  echo "  Walltime: ${walltime}" >&2
+  echo "  Script: ${script_path}" >&2
+
+  # Build sbatch command array
+  local sbatch_cmd_array=(
+    sbatch --parsable
+    --chdir="${script_containing_dir}"
+    --job-name="${PATIENT_ID}_${job_name}"
+    --partition="${partition}"
+    --cpus-per-task="${cpus}"
+    --mem="${memory}"
+    --time="${walltime}"
+    --output="${LOG_DIR}/${job_name}.log"
+    --error="${LOG_DIR}/${job_name}.err"
+  )
+
+  # Add dependency if specified
+  if [ ! -z "$dependency_flag" ]; then
+    # For jobs that depend on array jobs (like aggregation depending on phylowgs),
+    # use 'afterany' instead of 'afterok' to allow partial bootstrap failures
+    if [ "$job_name" = "aggregation" ] || [ "$job_name" = "marker_selection" ]; then
+      # These jobs depend on array jobs where some elements may fail (bootstraps)
+      # Use afterany to proceed when array job completes (regardless of individual element success)
+      local modified_dependency=$(echo "$dependency_flag" | sed 's/afterok/afterany/')
+      sbatch_cmd_array+=("$modified_dependency")
+    else
+      sbatch_cmd_array+=("$dependency_flag")
     fi
-    
-    local job_id="${job_id_output}"
-    echo "${job_name} job submitted with ID: ${job_id}" >&2
-    echo "${job_id}"
+  fi
+
+  # Add array configuration for phylowgs
+  if [ "$job_name" == "phylowgs" ]; then
+    local array_max=$((NUM_BOOTSTRAPS - 1))
+    sbatch_cmd_array+=("--array=0-${array_max}%${ARRAY_LIMIT}")
+    # Override output paths for array jobs to use phylowgs subfolder
+    # Remove the generic paths added earlier
+    for i in "${!sbatch_cmd_array[@]}"; do
+      if [[ "${sbatch_cmd_array[i]}" == "--output=${LOG_DIR}/${job_name}.log" ]]; then
+        sbatch_cmd_array[i]="--output=${LOG_DIR}/phylowgs/phylowgs_array_%A_%a.log"
+      elif [[ "${sbatch_cmd_array[i]}" == "--error=${LOG_DIR}/${job_name}.err" ]]; then
+        sbatch_cmd_array[i]="--error=${LOG_DIR}/phylowgs/phylowgs_array_%A_%a.err"
+      fi
+    done
+  fi
+
+  sbatch_cmd_array+=("${script_path}")
+  sbatch_cmd_array+=("${args[@]}")
+
+  # Execute sbatch command
+  local job_id_output
+  job_id_output=$("${sbatch_cmd_array[@]}")
+  local sbatch_status=$?
+
+  if [ ${sbatch_status} -ne 0 ] || [ -z "${job_id_output}" ]; then
+    echo "Error: Failed to submit ${job_name} job. sbatch command exited with status ${sbatch_status}." >&2
+    echo "Script path attempted: ${script_path}" >&2
+    exit 1
+  fi
+
+  local job_id="${job_id_output}"
+  echo "${job_name} job submitted with ID: ${job_id}" >&2
+  echo "${job_id}"
 }
 
 # --- Pipeline Execution ---
@@ -253,27 +253,27 @@ submit_job_yaml() {
 # Step 1: Bootstrap
 echo "Starting Bootstrap Stage..."
 BOOTSTRAP_JOB_ID=$(submit_job_yaml "bootstrap" "" \
-    "${CODE_DIR}/src/bootstrap/bootstrap.sh" \
-    "${INPUT_SSM_FILE}" "${BOOTSTRAP_STAGE_OUTPUT_DIR}" "${CODE_DIR}" "${NUM_BOOTSTRAPS}")
+  "${CODE_DIR}/src/bootstrap/bootstrap.sh" \
+  "${INPUT_SSM_FILE}" "${BOOTSTRAP_STAGE_OUTPUT_DIR}" "${CODE_DIR}" "${NUM_BOOTSTRAPS}")
 
 # Step 2: PhyloWGS (Array Job)
 echo "Starting PhyloWGS Stage..."
 PHYLOWGS_JOB_ID=$(submit_job_yaml "phylowgs" "${BOOTSTRAP_JOB_ID}" \
-    "${CODE_DIR}/src/phylowgs/phylowgs.sh" \
-    "${BOOTSTRAPS_DATA_DIR}" "${CODE_DIR}" "${NUM_CHAINS}")
+  "${CODE_DIR}/src/phylowgs/phylowgs.sh" \
+  "${BOOTSTRAPS_DATA_DIR}" "${CODE_DIR}" "${NUM_CHAINS}")
 
 # Step 3: Aggregation
 echo "Starting Aggregation Stage..."
 AGGREGATION_JOB_ID=$(submit_job_yaml "aggregation" "${PHYLOWGS_JOB_ID}" \
-    "${CODE_DIR}/src/aggregation/aggregation.sh" \
-    "${PATIENT_ID}" "${BOOTSTRAPS_DATA_DIR}" "${AGGREGATION_RESULTS_DIR}" "${CODE_DIR}")
+  "${CODE_DIR}/src/aggregation/aggregation.sh" \
+  "${PATIENT_ID}" "${BOOTSTRAPS_DATA_DIR}" "${AGGREGATION_RESULTS_DIR}" "${CODE_DIR}")
 
 # Step 4: Marker Selection
 echo "Starting Marker Selection Stage..."
 MARKER_SELECTION_JOB_ID=$(submit_job_yaml "marker_selection" "${AGGREGATION_JOB_ID}" \
-    "${CODE_DIR}/src/markers/marker_selection.sh" \
-    "${PATIENT_ID}" "${AGGREGATION_RESULTS_DIR}" "${FILTERED_SSM_FILE}" "${CODE_DIR}" \
-    "${READ_DEPTH}")
+  "${CODE_DIR}/src/markers/marker_selection.sh" \
+  "${PATIENT_ID}" "${AGGREGATION_RESULTS_DIR}" "${FILTERED_SSM_FILE}" "${CODE_DIR}" \
+  "${READ_DEPTH}")
 
 # --- Final Status ---
 echo "----------------------------------------"
@@ -283,7 +283,7 @@ echo "Monitor progress with: squeue -u $USER"
 echo "Check logs in: ${LOG_DIR}"
 
 # Save Job IDs for Reference
-cat > "${LOG_DIR}/job_ids.txt" << EOF
+cat >"${LOG_DIR}/job_ids.txt" <<EOF
 Pipeline Job IDs for ${PATIENT_ID} (Config: ${CONFIG_FILE}):
 Bootstrap: ${BOOTSTRAP_JOB_ID}
 PhyloWGS: ${PHYLOWGS_JOB_ID}
@@ -292,3 +292,4 @@ Marker Selection: ${MARKER_SELECTION_JOB_ID}
 EOF
 
 echo "=== Pipeline Submission Complete: $(date) ==="
+
