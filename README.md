@@ -102,3 +102,13 @@ squeue -u $USER
 - Check that SSM files have required columns: `id`, `gene`, `a`, `d`, `mu_r`, `mu_v`  
 - Verify sufficient disk space for bootstrap samples and tree results
 - Review stage-specific logs for detailed error information
+
+## Future Improvements
+This pipeline works, but can be drastically improved. Here are among a few things 
+that should be addressed:
+
+- Cleaner, more graceful error handling
+- Better code standard (fix with Ruff)
+- File management (repeated files that should be centralized) 
+- Leaning out everything; utilized AI for a lot of this implementation to get a functional product, but LLMs have a tendency to ramble... 
+- Many more... again, this pipeline *works*, but is not production ready
