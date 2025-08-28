@@ -1,20 +1,16 @@
 #!/bin/bash
-#SBATCH --job-name=phylowgs
-#SBATCH --partition=pool1
-#SBATCH --cpus-per-task=5
-#SBATCH --mem=8G
-#SBATCH --array=0-99%10 # Processing 100 bootstrap samples (0-99), 10 concurrently
+# Runs PhyloWGS phylogenetic inference on bootstrap samples
+# Usage: sbatch phylowgs.sh <base_directory_containing_bootstrap_folders> <code_directory> <num_chains>
 
-# Usage: sbatch phylowgs.sh <base_directory_containing_bootstrap_folders> <code_directory>
-
-if [ "$#" -ne 2 ]; then
+if [ "$#" -ne 3 ]; then
     echo "Error: Incorrect number of arguments."
-    echo "Usage: sbatch $0 <base_directory_containing_bootstrap_folders> <code_directory>"
+    echo "Usage: sbatch $0 <base_directory_containing_bootstrap_folders> <code_directory> <num_chains>"
     exit 1
 fi
 
 BASE_DIR=$1
 CODE_DIR=$2
+NUM_CHAINS=$3
 
 # Ensure we have absolute paths
 if [[ ! "$BASE_DIR" = /* ]]; then
@@ -40,8 +36,8 @@ fi
 # Print current working directory for debugging
 echo "Current working directory at start: $(pwd)" >&2
 
-# activate phylowgs environment
-source ~/miniconda3/bin/activate phylowgs_env
+# Use phylowgs environment via conda run (consistent with other scripts)
+echo "Using conda environment phylowgs_env..."
 
 # Use the absolute path to the phylowgs directory based on the provided code directory
 phylowgs_dir="${CODE_DIR}/src/phylowgs/phylowgs"
@@ -76,6 +72,7 @@ echo "Working Directory: $(pwd)"
 echo "Bootstrap Directory: $CURRENT_BOOTSTRAP_DIR_PATH"
 echo "Bootstrap Number: $BOOTSTRAP_NUM"
 echo "Code Directory: $CODE_DIR"
+echo "Number of MCMC Chains: $NUM_CHAINS"
 
 SSM_FILE="${CURRENT_BOOTSTRAP_DIR_PATH}/ssm.txt"
 CNV_FILE="${CURRENT_BOOTSTRAP_DIR_PATH}/cnv.txt"
@@ -93,7 +90,7 @@ fi
 mkdir -p "$CHAINS_DIR"
 
 echo "Running multievolve.py for $BOOTSTRAP_DIR_NAME..."
-python2 "${multievolve}" --num-chains 5 \
+conda run -n phylowgs_env python2 "${multievolve}" --num-chains "${NUM_CHAINS}" \
         --ssms "$SSM_FILE" \
         --cnvs "$CNV_FILE" \
         --output-dir "$CHAINS_DIR"
@@ -105,7 +102,7 @@ if [ $PY2_MULTI_EXIT_CODE -ne 0 ]; then
 fi
 
 echo "Running write_results.py for $BOOTSTRAP_DIR_NAME..."
-python2 "${write_results}" --include-ssm-names result \
+conda run -n phylowgs_env python2 "${write_results}" --include-ssm-names result \
                 "${CHAINS_DIR}/trees.zip" \
                 "${CURRENT_BOOTSTRAP_DIR_PATH}/result.summ.json.gz" \
                 "${CURRENT_BOOTSTRAP_DIR_PATH}/result.muts.json.gz" \

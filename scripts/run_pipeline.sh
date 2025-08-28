@@ -1,9 +1,8 @@
 #!/bin/bash
 # Master Pipeline Script for TracerX Marker Selection Pipeline (Steps 1-4)
 # This script runs on the login node and submits individual SLURM jobs for each pipeline step
-# Usage: bash run_pipeline.sh config.yaml [--dry-run]
+# Usage: bash run_pipeline.sh config.yaml
 # Example: bash run_pipeline.sh configs/analysis/test_analysis.yaml
-# Example: bash run_pipeline.sh configs/analysis/test_analysis.yaml --dry-run
 
 set -e  # Exit on any error
 
@@ -12,22 +11,14 @@ echo "Using conda environment for YAML parsing..."
 cd "$( dirname "${BASH_SOURCE[0]}" )/.."  # Change to repo root
 
 # --- Input Validation ---
-if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+if [ "$#" -ne 1 ]; then
     echo "Error: Incorrect number of arguments."
-    echo "Usage: $0 <config.yaml> [--dry-run]"
-    echo "Example: bash $0 configs/standard_analysis.yaml"
-    echo "Example: bash $0 configs/test_analysis.yaml --dry-run"
+    echo "Usage: $0 <config.yaml>"
+    echo "Example: bash $0 configs/analysis/standard_analysis.yaml"
     exit 1
 fi
 
 CONFIG_FILE=$1
-DRY_RUN=${2:-""}
-
-# Validate dry-run option
-if [ -n "$DRY_RUN" ] && [ "$DRY_RUN" != "--dry-run" ]; then
-    echo "Error: Invalid option '$DRY_RUN'. Only '--dry-run' is supported."
-    exit 1
-fi
 
 # --- Get script directory for absolute paths ---
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
@@ -48,98 +39,17 @@ fi
 # --- Load Configuration Using Python ---
 echo "Loading configuration from: ${CONFIG_FILE}"
 
-# Create temporary Python script to parse YAML and export variables
-TEMP_VARS_FILE=$(mktemp)
-cat > /tmp/parse_config.py << 'EOF'
-import yaml
-import sys
-import os
-
-def parse_config(config_file):
-    """Parse YAML configuration and export as shell variables."""
-    with open(config_file, 'r') as f:
-        config = yaml.safe_load(f)
-    
-    # Extract configuration values with defaults
-    patient_id = config.get('patient_id', 'UNKNOWN')
-    
-    # Input configuration
-    input_config = config.get('input', {})
-    ssm_file = input_config.get('ssm_file', '')
-    code_dir = input_config.get('code_dir', '')
-    
-    # Output configuration
-    output_config = config.get('output', {})
-    base_dir = output_config.get('base_dir', '')
-    
-    # Bootstrap configuration
-    bootstrap_config = config.get('bootstrap', {})
-    num_bootstraps = bootstrap_config.get('num_bootstraps', 100)
-    
-    # PhyloWGS configuration
-    phylowgs_config = config.get('phylowgs', {})
-    array_limit = phylowgs_config.get('parallel_limit', 10)
-    
-    # Marker selection configuration
-    marker_config = config.get('marker_selection', {})
-    read_depth = marker_config.get('read_depth', 1500)
-    # Note: VAF filtering parameters removed - filtering now handled in bootstrap stage
-    
-    # HPC configuration
-    hpc_config = config.get('hpc', {})
-    
-    # Construct patient-specific base directory and filtered SSM file path
-    patient_base_dir = f"{base_dir}/{patient_id}"
-    filtered_ssm_file = f"{patient_base_dir}/initial/ssm_filtered.txt"
-    
-    # Print shell variable exports
-    print(f'export PATIENT_ID="{patient_id}"')
-    print(f'export INPUT_SSM_FILE="{ssm_file}"')
-    print(f'export FILTERED_SSM_FILE="{filtered_ssm_file}"')
-    print(f'export CODE_DIR="{code_dir}"')
-    print(f'export PATIENT_BASE_DIR="{patient_base_dir}"')
-    print(f'export NUM_BOOTSTRAPS="{num_bootstraps}"')
-    print(f'export ARRAY_LIMIT="{array_limit}"')
-    print(f'export READ_DEPTH="{read_depth}"')
-    # Note: Filter strategy and threshold exports removed - handled in bootstrap stage
-    
-    # HPC settings for each step
-    for step in ['bootstrap', 'phylowgs', 'aggregation', 'marker_selection']:
-        step_config = hpc_config.get(step, {})
-        step_upper = step.upper()
-        print(f'export {step_upper}_PARTITION="{step_config.get("partition", "pool1")}"')
-        print(f'export {step_upper}_CPUS="{step_config.get("cpus_per_task", 1)}"')
-        print(f'export {step_upper}_MEMORY="{step_config.get("memory", "8G")}"')
-        print(f'export {step_upper}_WALLTIME="{step_config.get("walltime", "02:00:00")}"')
-        print(f'export {step_upper}_CONDA_ENV="{step_config.get("conda_env", "base")}"')
-    
-    # Special handling for modules
-    marker_modules = hpc_config.get('marker_selection', {}).get('modules', [])
-    if marker_modules:
-        print(f'export MARKER_SELECTION_MODULES="{" ".join(marker_modules)}"')
-
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python parse_config.py <config.yaml>", file=sys.stderr)
-        sys.exit(1)
-    
-    try:
-        parse_config(sys.argv[1])
-    except Exception as e:
-        print(f"Error parsing configuration: {e}", file=sys.stderr)
-        sys.exit(1)
-EOF
-
 # Parse configuration and source the variables
-conda run -n mase_phi_hpc python /tmp/parse_config.py "$CONFIG_FILE" > "$TEMP_VARS_FILE"
+TEMP_VARS_FILE=$(mktemp)
+conda run -n mase_phi_hpc python "${SCRIPT_DIR}/parse_config.py" "$CONFIG_FILE" > "$TEMP_VARS_FILE"
 if [ $? -ne 0 ]; then
     echo "Error: Failed to parse configuration file"
-    rm -f "$TEMP_VARS_FILE" /tmp/parse_config.py
+    rm -f "$TEMP_VARS_FILE"
     exit 1
 fi
 
 source "$TEMP_VARS_FILE"
-rm -f "$TEMP_VARS_FILE" /tmp/parse_config.py
+rm -f "$TEMP_VARS_FILE"
 
 # --- Validate Required Configuration ---
 if [ -z "$PATIENT_ID" ] || [ -z "$INPUT_SSM_FILE" ] || [ -z "$CODE_DIR" ] || [ -z "$PATIENT_BASE_DIR" ]; then
@@ -181,16 +91,17 @@ if [ ! -d "$CODE_DIR" ]; then
     exit 1
 fi
 
-# --- Define Directory Structure ---
-INITIAL_DIR="${PATIENT_BASE_DIR}/initial"
-BOOTSTRAP_STAGE_OUTPUT_DIR="${INITIAL_DIR}"
-BOOTSTRAPS_DATA_DIR="${BOOTSTRAP_STAGE_OUTPUT_DIR}/bootstraps"
-AGGREGATION_RESULTS_DIR="${BOOTSTRAP_STAGE_OUTPUT_DIR}/aggregation_results"
-MARKERS_DIR="${BOOTSTRAP_STAGE_OUTPUT_DIR}/markers"
-LOG_DIR="${INITIAL_DIR}/logs"
-
-# --- Create Required Directories ---
-if [ "$DRY_RUN" != "--dry-run" ]; then
+# --- Setup Directory Structure ---
+setup_directories() {
+    # Define directory structure
+    INITIAL_DIR="${PATIENT_BASE_DIR}/initial"
+    BOOTSTRAP_STAGE_OUTPUT_DIR="${INITIAL_DIR}"
+    BOOTSTRAPS_DATA_DIR="${BOOTSTRAP_STAGE_OUTPUT_DIR}/bootstraps"
+    AGGREGATION_RESULTS_DIR="${BOOTSTRAP_STAGE_OUTPUT_DIR}/aggregation_results"
+    MARKERS_DIR="${BOOTSTRAP_STAGE_OUTPUT_DIR}/markers"
+    LOG_DIR="${INITIAL_DIR}/logs"
+    
+    # Create required directories
     mkdir -p "${PATIENT_BASE_DIR}"
     mkdir -p "${INITIAL_DIR}"
     mkdir -p "${BOOTSTRAPS_DATA_DIR}"
@@ -198,13 +109,13 @@ if [ "$DRY_RUN" != "--dry-run" ]; then
     mkdir -p "${MARKERS_DIR}"
     mkdir -p "${LOG_DIR}"
     mkdir -p "${LOG_DIR}/phylowgs"
-fi
+}
+
+setup_directories
 
 # --- Logging Setup ---
 MASTER_LOG="${LOG_DIR}/pipeline_master.log"
-if [ "$DRY_RUN" != "--dry-run" ]; then
-    exec > >(tee -a "${MASTER_LOG}") 2>&1
-fi
+exec > >(tee -a "${MASTER_LOG}") 2>&1
 
 echo "=== Pipeline Start: $(date) ==="
 echo "Configuration File: ${CONFIG_FILE}"
@@ -216,7 +127,6 @@ echo "Number of Bootstraps: ${NUM_BOOTSTRAPS}"
 echo "Read Depth: ${READ_DEPTH}"
 echo "Code Directory: ${CODE_DIR}"
 echo "Log Directory: ${LOG_DIR}"
-echo "Dry Run Mode: ${DRY_RUN:-false}"
 echo "----------------------------------------"
 
 # --- Function to Submit Job with YAML Configuration ---
@@ -236,16 +146,39 @@ submit_job_yaml() {
     fi
     
     # Get step-specific HPC configuration
-    local step_upper=$(echo "${job_name}" | tr '[:lower:]' '[:upper:]')
-    local partition_var="${step_upper}_PARTITION"
-    local cpus_var="${step_upper}_CPUS"
-    local memory_var="${step_upper}_MEMORY"
-    local walltime_var="${step_upper}_WALLTIME"
-    
-    local partition=${!partition_var:-pool1}
-    local cpus=${!cpus_var:-1}
-    local memory=${!memory_var:-8G}
-    local walltime=${!walltime_var:-02:00:00}
+    local partition cpus memory walltime
+    case "$job_name" in
+        "bootstrap")
+            partition="${BOOTSTRAP_PARTITION:-pool1}"
+            cpus="${BOOTSTRAP_CPUS:-1}"
+            memory="${BOOTSTRAP_MEMORY:-8G}"
+            walltime="${BOOTSTRAP_WALLTIME:-02:00:00}"
+            ;;
+        "phylowgs")
+            partition="${PHYLOWGS_PARTITION:-pool1}"
+            cpus="${PHYLOWGS_CPUS:-1}"
+            memory="${PHYLOWGS_MEMORY:-8G}"
+            walltime="${PHYLOWGS_WALLTIME:-02:00:00}"
+            ;;
+        "aggregation")
+            partition="${AGGREGATION_PARTITION:-pool1}"
+            cpus="${AGGREGATION_CPUS:-1}"
+            memory="${AGGREGATION_MEMORY:-8G}"
+            walltime="${AGGREGATION_WALLTIME:-02:00:00}"
+            ;;
+        "marker_selection")
+            partition="${MARKER_SELECTION_PARTITION:-pool1}"
+            cpus="${MARKER_SELECTION_CPUS:-1}"
+            memory="${MARKER_SELECTION_MEMORY:-8G}"
+            walltime="${MARKER_SELECTION_WALLTIME:-02:00:00}"
+            ;;
+        *)
+            partition="pool1"
+            cpus="1"
+            memory="8G"
+            walltime="02:00:00"
+            ;;
+    esac
     
     echo "Submitting ${job_name} with configuration:" >&2
     echo "  Partition: ${partition}" >&2
@@ -299,12 +232,6 @@ submit_job_yaml() {
     sbatch_cmd_array+=("${script_path}")
     sbatch_cmd_array+=("${args[@]}")
     
-    if [ "$DRY_RUN" == "--dry-run" ]; then
-        echo "DRY RUN: Would execute: ${sbatch_cmd_array[*]}" >&2
-        echo "12345"  # Return fake job ID for dry run
-        return 0
-    fi
-    
     # Execute sbatch command
     local job_id_output
     job_id_output=$("${sbatch_cmd_array[@]}")
@@ -333,7 +260,7 @@ BOOTSTRAP_JOB_ID=$(submit_job_yaml "bootstrap" "" \
 echo "Starting PhyloWGS Stage..."
 PHYLOWGS_JOB_ID=$(submit_job_yaml "phylowgs" "${BOOTSTRAP_JOB_ID}" \
     "${CODE_DIR}/src/phylowgs/phylowgs.sh" \
-    "${BOOTSTRAPS_DATA_DIR}" "${CODE_DIR}")
+    "${BOOTSTRAPS_DATA_DIR}" "${CODE_DIR}" "${NUM_CHAINS}")
 
 # Step 3: Aggregation
 echo "Starting Aggregation Stage..."
@@ -350,24 +277,18 @@ MARKER_SELECTION_JOB_ID=$(submit_job_yaml "marker_selection" "${AGGREGATION_JOB_
 
 # --- Final Status ---
 echo "----------------------------------------"
-if [ "$DRY_RUN" == "--dry-run" ]; then
-    echo "DRY RUN COMPLETE: Pipeline configuration validated successfully!"
-    echo "Configuration file: ${CONFIG_FILE}"
-    echo "All job submissions would succeed with provided configuration."
-else
-    echo "Pipeline submitted successfully!"
-    echo "Final marker selection job ID: ${MARKER_SELECTION_JOB_ID}"
-    echo "Monitor progress with: squeue -u $USER"
-    echo "Check logs in: ${LOG_DIR}"
-    
-    # Save Job IDs for Reference
-    cat > "${LOG_DIR}/job_ids.txt" << EOF
+echo "Pipeline submitted successfully!"
+echo "Final marker selection job ID: ${MARKER_SELECTION_JOB_ID}"
+echo "Monitor progress with: squeue -u $USER"
+echo "Check logs in: ${LOG_DIR}"
+
+# Save Job IDs for Reference
+cat > "${LOG_DIR}/job_ids.txt" << EOF
 Pipeline Job IDs for ${PATIENT_ID} (Config: ${CONFIG_FILE}):
 Bootstrap: ${BOOTSTRAP_JOB_ID}
 PhyloWGS: ${PHYLOWGS_JOB_ID}
 Aggregation: ${AGGREGATION_JOB_ID}
 Marker Selection: ${MARKER_SELECTION_JOB_ID}
 EOF
-fi
 
 echo "=== Pipeline Submission Complete: $(date) ==="

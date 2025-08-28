@@ -3,7 +3,6 @@
 
 # Patient and analysis identification
 patient_id: "ppi_115"
-analysis_type: "standard"  # Options: standard, test, high_depth
 
 # Input files and directories - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
 input:
@@ -13,25 +12,22 @@ input:
 # Output configuration
 output:
   base_dir: "/home/ssabata/patient_data/filter_test/"  # Patient base directory
-  create_subdirs: true
-  log_level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
 
 # Step 1: Bootstrap configuration
 bootstrap:
   num_bootstraps: 10  # Number of bootstrap samples to generate
-  random_seed: 42    # Set to integer for reproducible results, null for random
 
 # Step 2: PhyloWGS configuration  
 phylowgs:
-  num_chains: 5      # Number of MCMC chains to run
-  parallel_limit: 50  # Maximum number of parallel jobs in SLURM array
+  num_chains: 5      # Number of chains used for PhyloWGS 
+  parallel_limit: 50  # Maximum number of parallel jobs in SLURM array; make sure this one is being used 
 
 # Step 3: Aggregation configuration
 aggregation:
-  method: "phylowgs"
-  generate_visualizations: true
+  method: "phylowgs" # not used?
+  generate_visualizations: true # not used 
   sample_prefix: "Region"  # Prefix for sample names in visualizations
-  custom_sample_names: []  # Optional: ["Tumor_Primary", "Tumor_Met1", "Tumor_Met2"]
+  custom_sample_names: []  # remove 
 
 # Step 4: Marker selection configuration
 marker_selection:
@@ -52,14 +48,14 @@ hpc:
     cpus_per_task: 2
     memory: "16G"
     walltime: "02:00:00"
-    conda_env: "preprocess_env"
+    conda_env: "preprocess_env" # not used 
   
   phylowgs:
     partition: "pool1" 
     cpus_per_task: 5
     memory: "8G"
     walltime: "12:00:00"
-    conda_env: "phylowgs_env"
+    conda_env: "phylowgs_env" # not used 
     array_throttle: 50  # %10 in SLURM array syntax
   
   aggregation:
@@ -67,23 +63,23 @@ hpc:
     cpus_per_task: 1  
     memory: "16G"
     walltime: "04:00:00"
-    conda_env: "aggregation_env"
+    conda_env: "aggregation_env" # not used
   
   marker_selection:
     partition: "pool1"
     cpus_per_task: 1
     memory: "16G" 
     walltime: "06:00:00"
-    conda_env: "markers_env"
+    conda_env: "markers_env" # not used 
     modules: ["gurobi1102"]  # Required modules to load
 
-# Validation and debugging
+    # Validation and debugging: remove 
 validation:
   validate_inputs: true
   check_dependencies: true
   debug_mode: false
 
-# Pipeline orchestration
+  # Pipeline orchestration: remove 
 orchestration:
   run_sequential: false    # If true, run steps sequentially instead of using dependencies
   cleanup_temp_files: true

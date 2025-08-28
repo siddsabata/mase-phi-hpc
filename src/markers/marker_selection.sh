@@ -1,32 +1,32 @@
 #!/bin/bash
-#
-# Multi-sample marker selection SLURM script
-# Uses run_data_multi_sample.py with flexible VAF filtering strategies
-#
-#SBATCH --job-name=marker_selection_multi
-# SLURM will use default log files (e.g., slurm-%j.out in submission dir for initial output).
-#SBATCH --partition=pool1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem=16G
+# Multi-sample marker selection using pre-filtered SSM data
+# Usage: sbatch marker_selection.sh <patient_id> <aggregation_directory> <ssm_file_path> <code_directory> [read_depth]
 
 set -e
 
-# load gurobi
-echo "Loading Gurobi 11.0.2 module..."
-module load gurobi1102
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to load gurobi1102 module. Exiting."
-    exit 1
+# Load required modules from configuration
+if [ -n "${MARKER_SELECTION_MODULES}" ]; then
+    echo "Loading modules: ${MARKER_SELECTION_MODULES}"
+    for module in ${MARKER_SELECTION_MODULES}; do
+        echo "Loading module: $module"
+        module load "$module"
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to load module '$module'. Exiting."
+            exit 1
+        fi
+        echo "Module $module loaded successfully."
+    done
+else
+    echo "Warning: No modules specified in MARKER_SELECTION_MODULES. Proceeding without loading modules."
 fi
-echo "Gurobi module loaded successfully."
 
 # --- Argument Parsing and Validation ---
 if [ "$#" -lt 4 ] || [ "$#" -gt 5 ]; then
-    echo "Error: Incorrect number of arguments."
-    echo "Usage: sbatch $0 <patient_id> <aggregation_directory> <ssm_file_path> <code_directory> [read_depth]"
-    echo "Example: sbatch $0 CRUK0001 /path/to/data/CRUK0001/initial/aggregation_results /path/to/data/CRUK0001/initial/ssm_filtered.txt /path/to/tracerx-mp 1500"
-    echo "Note: SSM file should be pre-filtered from bootstrap stage (VAF filtering applied there)"
-    exit 1
+  echo "Error: Incorrect number of arguments."
+  echo "Usage: sbatch $0 <patient_id> <aggregation_directory> <ssm_file_path> <code_directory> [read_depth]"
+  echo "Example: sbatch $0 CRUK0001 /path/to/data/CRUK0001/initial/aggregation_results /path/to/data/CRUK0001/initial/ssm_filtered.txt /path/to/tracerx-mp 1500"
+  echo "Note: SSM file should be pre-filtered from bootstrap stage (VAF filtering applied there)"
+  exit 1
 fi
 
 PATIENT_ID=$1
@@ -36,18 +36,18 @@ CODE_DIR=$4
 READ_DEPTH=${5:-1500} # Default to 1500 if not provided
 
 if [ ! -d "$AGGREGATION_DIR" ]; then
-    echo "Error: Aggregation directory '$AGGREGATION_DIR' not found."
-    exit 1
+  echo "Error: Aggregation directory '$AGGREGATION_DIR' not found."
+  exit 1
 fi
 
 if [ ! -f "$SSM_FILE" ]; then
-    echo "Error: SSM file '$SSM_FILE' not found."
-    exit 1
+  echo "Error: SSM file '$SSM_FILE' not found."
+  exit 1
 fi
 
 if [ ! -d "$CODE_DIR" ]; then
-    echo "Error: Code directory '$CODE_DIR' not found."
-    exit 1
+  echo "Error: Code directory '$CODE_DIR' not found."
+  exit 1
 fi
 
 echo "--- Marker Selection Script Execution ---"
@@ -78,8 +78,8 @@ cd "$CODE_DIR"
 echo "Verifying Gurobi is accessible from Python..."
 conda run -n mase_phi_hpc python -c "import gurobipy; print(f'Gurobi version: {gurobipy.gurobi.version()}')"
 if [ $? -ne 0 ]; then
-    echo "Error: Failed to import gurobipy or access Gurobi. Check that the module is properly loaded and gurobipy is installed."
-    exit 1
+  echo "Error: Failed to import gurobipy or access Gurobi. Check that the module is properly loaded and gurobipy is installed."
+  exit 1
 fi
 echo "Gurobi verification successful."
 
@@ -92,34 +92,30 @@ echo "DEBUG: Marker script path: $MARKER_SCRIPT_PATH"
 echo "DEBUG: Script exists check: $(ls -la "$MARKER_SCRIPT_PATH" 2>/dev/null || echo "NOT FOUND")"
 
 if [ ! -f "$MARKER_SCRIPT_PATH" ]; then
-    echo "Error: Multi-sample marker selection Python script not found at $MARKER_SCRIPT_PATH. Exiting."
-    exit 1
+  echo "Error: Multi-sample marker selection Python script not found at $MARKER_SCRIPT_PATH. Exiting."
+  exit 1
 fi
 
 echo "Running multi-sample Python marker selection script: $MARKER_SCRIPT_PATH"
 
-# Build the command with required arguments using shorthand options
-CMD="conda run -n mase_phi_hpc python \"$MARKER_SCRIPT_PATH\" \"${PATIENT_ID}\" \
-    -a \"${AGGREGATION_DIR}\" \
-    -s \"${SSM_FILE}\" \
-    -r \"${READ_DEPTH}\" \
-    -o \"${MARKERS_DIR}\""
-
 # Note: Filtering parameters removed - SSM file is already pre-filtered from bootstrap stage
 
-echo "Executing command: $CMD"
-eval $CMD
+conda run -n mase_phi_hpc python "$MARKER_SCRIPT_PATH" "${PATIENT_ID}" \
+  -a "${AGGREGATION_DIR}" \
+  -s "${SSM_FILE}" \
+  -r "${READ_DEPTH}" \
+  -o "${MARKERS_DIR}"
 
 SCRIPT_EXIT_CODE=$?
 if [ $SCRIPT_EXIT_CODE -eq 0 ]; then
-    echo "Marker selection completed successfully for patient ${PATIENT_ID}."
+  echo "Marker selection completed successfully for patient ${PATIENT_ID}."
 else
-    echo "Error: Marker selection Python script failed for patient ${PATIENT_ID} with exit code $SCRIPT_EXIT_CODE."
-    # Consider exiting the sbatch script with the Python script's error code
-    exit $SCRIPT_EXIT_CODE 
+  echo "Error: Marker selection Python script failed for patient ${PATIENT_ID} with exit code $SCRIPT_EXIT_CODE."
+  # Consider exiting the sbatch script with the Python script's error code
+  exit $SCRIPT_EXIT_CODE
 fi
 
 echo "Detailed Python script output is in: ${MARKERS_DIR}"
-echo "Script execution logs are in: ${LOG_DIR} (marker_selection_execution.log/err)"
-echo "Primary SLURM job log (initial messages) is in the submission directory (e.g., slurm-$SLURM_JOB_ID.out)."
-echo "--- Marker Selection Script End (redirected output) ---" 
+echo "Primary SLURM job log is in the submission directory (slurm-$SLURM_JOB_ID.out)."
+echo "--- Marker Selection Script End ---"
+

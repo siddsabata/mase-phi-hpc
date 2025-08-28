@@ -1,9 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=aggregation
-# SLURM will use default log files (e.g., slurm-%j.out in submission dir).
-#SBATCH --partition=pool1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem=16G
+# Aggregates PhyloWGS results from multiple bootstrap samples
+# Usage: sbatch aggregation.sh <patient_id> <bootstrap_parent_directory> <output_directory> <code_directory>
 
 set -e
 
@@ -77,6 +74,5 @@ else
     exit $SCRIPT_EXIT_CODE
 fi
 
-echo "Detailed script execution logs are in: $LOG_DIR_IN_PARENT/ (aggregation_execution.log/err)"
 echo "Primary SLURM job log is in the submission directory."
-echo "--- Aggregation Script End (redirected output) ---" 
+echo "--- Aggregation Script End ---" 

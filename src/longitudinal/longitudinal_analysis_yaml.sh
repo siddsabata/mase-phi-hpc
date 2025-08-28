@@ -1,12 +1,6 @@
 #!/bin/bash
-#
-# Longitudinal cancer evolution analysis SLURM script - YAML CONFIG MODE (v2.0)
-# Uses longitudinal_main.py with modular, simplified architecture
-#
-#SBATCH --job-name=longitudinal_yaml_analysis
-#SBATCH --partition=pool1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem=16G
+# Longitudinal cancer evolution analysis using YAML configuration
+# Usage: sbatch longitudinal_analysis_yaml.sh <config_yaml_file> [additional_flags] [slurm_log_suffix]
 
 set -e
 
@@ -103,8 +97,6 @@ echo "Analysis mode: $ANALYSIS_MODE"
 echo "Code directory: $CODE_DIR"
 echo "Output base directory: $OUTPUT_BASE"
 echo "Additional flags: $ADDITIONAL_FLAGS"
-echo "Log file: $LOG_FILE"
-echo "Error file: $ERR_FILE"
 echo "---------------------------------------"
 
 # --- Environment Setup ---
@@ -166,9 +158,6 @@ echo ""
 echo "Key output files will be in subdirectories of: ${OUTPUT_BASE}"
 echo "  - ${ANALYSIS_MODE}_marker_analysis/: Analysis results"
 echo "  - logs/: Detailed execution logs"
-echo ""
-echo "Analysis logs: ${LOG_FILE}"
-echo "Error logs: ${ERR_FILE}"
 echo ""
 echo "Primary SLURM job log is in the submission directory (slurm-$SLURM_JOB_ID.out)."
 echo "--- Longitudinal YAML Analysis Script v2.0 End ---" 
