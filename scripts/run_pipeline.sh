@@ -88,15 +88,16 @@ def parse_config(config_file):
     # HPC configuration
     hpc_config = config.get('hpc', {})
     
-    # Construct filtered SSM file path
-    filtered_ssm_file = f"{base_dir}/{patient_id}/initial/ssm_filtered.txt"
+    # Construct patient-specific base directory and filtered SSM file path
+    patient_base_dir = f"{base_dir}/{patient_id}"
+    filtered_ssm_file = f"{patient_base_dir}/initial/ssm_filtered.txt"
     
     # Print shell variable exports
     print(f'export PATIENT_ID="{patient_id}"')
     print(f'export INPUT_SSM_FILE="{ssm_file}"')
     print(f'export FILTERED_SSM_FILE="{filtered_ssm_file}"')
     print(f'export CODE_DIR="{code_dir}"')
-    print(f'export PATIENT_BASE_DIR="{base_dir}"')
+    print(f'export PATIENT_BASE_DIR="{patient_base_dir}"')
     print(f'export NUM_BOOTSTRAPS="{num_bootstraps}"')
     print(f'export ARRAY_LIMIT="{array_limit}"')
     print(f'export READ_DEPTH="{read_depth}"')
