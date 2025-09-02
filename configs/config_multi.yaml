@@ -17,7 +17,7 @@ bootstrap:
 # Step 2: PhyloWGS configuration  
 phylowgs:
   num_chains: 5      # Number of chains used for PhyloWGS 
-  parallel_limit: 50  # Maximum number of parallel jobs in SLURM array (conservative for multi-patient)
+  parallel_limit: 100  # Maximum number of parallel jobs in SLURM array (conservative for multi-patient)
 
 # Step 4: Marker selection configuration
 marker_selection:
