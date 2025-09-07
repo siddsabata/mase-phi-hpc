@@ -12,7 +12,7 @@ output:
 
 # Step 1: Bootstrap configuration
 bootstrap:
-  num_bootstraps: 10  # Number of bootstrap samples to generate
+  num_bootstraps: 100  # Number of bootstrap samples to generate
 
 # Step 2: PhyloWGS configuration  
 phylowgs:
