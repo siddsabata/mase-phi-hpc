@@ -1,617 +1,495 @@
 #!/usr/bin/env python3
 """
-Longitudinal visualization module for cancer evolution analysis.
+Updated longitudinal visualization module for unified pipeline.
 
-This module provides clean, simple visualization functions for both
-dynamic and fixed marker analysis modes as specified in the todo.md:
+This module creates essential tracking plots for the unified longitudinal
+analysis pipeline, focusing on tree convergence, marker evolution, and
+clonal frequency tracking without complex heatmaps.
 
-1. Phylogenetic Tree(s) - for both modes
-2. Tree Evolution Plots - showing weight changes over time
-3. VAF Plots (Fixed Mode) - display chosen marker VAFs
-4. VAF Plots (Dynamic Mode) - display final converged marker VAFs
-
-Authors: TracerX Pipeline Development Team
-Version: 2.0.0
+Authors: TracerX Pipeline Development Team  
 """
 
 import logging
 import json
-import pickle
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from graphviz import Digraph
-
-# Import existing visualization utilities from the pipeline
-from visualize import render_tumor_tree, root_searching
+from pathlib import Path
+from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger(__name__)
 
 
-def create_visualization_plots(analysis_mode: str, patient_id: str, output_dir: Path, 
-                             results_summary: Dict, timepoint_data: Dict, 
-                             logger: logging.Logger) -> Dict[str, str]:
+def create_unified_visualization_plots(patient_id: str, output_dir: Path, 
+                                     comprehensive_json_path: Path,
+                                     logger: logging.Logger) -> Dict[str, str]:
     """
-    Create all required visualization plots for longitudinal analysis.
+    Create essential visualization plots for unified longitudinal analysis.
     
     Args:
-        analysis_mode: 'fixed' or 'dynamic'
         patient_id: Patient identifier
         output_dir: Output directory for plots
-        results_summary: Analysis results summary
-        timepoint_data: Timepoint data dictionary
+        comprehensive_json_path: Path to comprehensive JSON tracking file
         logger: Logger instance
         
     Returns:
         Dictionary mapping plot types to file paths
     """
-    logger.info(f"Creating visualization plots for {analysis_mode} analysis")
+    logger.info("Creating unified longitudinal visualization plots")
     
     # Create visualization directory
-    viz_dir = output_dir / f'{analysis_mode}_marker_analysis' / 'visualizations'
+    viz_dir = output_dir / 'visualizations'
     viz_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Load comprehensive tracking data
+    with open(comprehensive_json_path, 'r') as f:
+        tracking_data = json.load(f)
     
     plot_files = {}
     
     try:
-        # 1. Phylogenetic Tree(s) - for both modes
-        tree_plot = create_phylogenetic_tree_plot(
-            analysis_mode, patient_id, viz_dir, results_summary, logger)
-        plot_files['phylogenetic_tree'] = tree_plot
+        # 1. Tree Convergence Plot - Show how tree frequencies evolve over timepoints
+        convergence_plot = create_tree_convergence_plot(
+            patient_id, viz_dir, tracking_data, logger)
+        plot_files['tree_convergence'] = convergence_plot
         
-        # 2. Tree Evolution Plots - for both modes
-        evolution_plot = create_tree_evolution_plot(
-            analysis_mode, patient_id, viz_dir, results_summary, output_dir, logger)
-        plot_files['tree_evolution'] = evolution_plot
+        # 2. Marker Selection Evolution - Track which markers are selected at each timepoint  
+        marker_evolution_plot = create_marker_selection_evolution_plot(
+            patient_id, viz_dir, tracking_data, logger)
+        plot_files['marker_evolution'] = marker_evolution_plot
         
-        # 3. VAF Plots - mode-specific
-        vaf_plot = create_vaf_plots(
-            analysis_mode, patient_id, viz_dir, results_summary, timepoint_data, logger)
-        plot_files['vaf_plots'] = vaf_plot
+        # 3. Clonal Frequency Evolution - Line plots showing clone frequency changes
+        clonal_freq_plot = create_clonal_frequency_evolution_plot(
+            patient_id, viz_dir, tracking_data, logger)
+        plot_files['clonal_frequency_evolution'] = clonal_freq_plot
         
-        # 4. Dynamic Marker Selection Plot - dynamic mode only
-        if analysis_mode == 'dynamic':
-            marker_selection_plot = create_dynamic_marker_selection_plot(
-                patient_id, viz_dir, results_summary, logger)
-            plot_files['marker_selection'] = marker_selection_plot
+        # 4. Entropy Evolution - Show convergence metrics over time
+        entropy_plot = create_entropy_evolution_plot(
+            patient_id, viz_dir, tracking_data, logger)
+        plot_files['entropy_evolution'] = entropy_plot
         
-        logger.info(f"Successfully created all visualization plots")
+        # 5. Save visualization summary
+        summary_file = save_visualization_summary(viz_dir, plot_files, tracking_data)
+        plot_files['summary'] = summary_file
+        
+        logger.info(f"Successfully created all unified visualization plots")
         logger.info(f"Plots saved in: {viz_dir}")
         
     except Exception as e:
-        logger.error(f"Error creating visualization plots: {e}")
+        logger.error(f"Error creating unified visualization plots: {e}")
         raise
     
     return plot_files
 
 
-def create_phylogenetic_tree_plot(analysis_mode: str, patient_id: str, viz_dir: Path,
-                                 results_summary: Dict, logger: logging.Logger) -> Optional[str]:
+def create_tree_convergence_plot(patient_id: str, viz_dir: Path, 
+                                tracking_data: Dict, logger: logging.Logger) -> str:
     """
-    Create phylogenetic tree visualization(s).
+    Create tree convergence plot showing how tree frequencies change over timepoints.
     
-    Shows the best/converged phylogenetic tree(s) from the analysis.
-    References the existing tree rendering approach from steps 1-4.
+    Args:
+        patient_id: Patient identifier
+        viz_dir: Visualization directory
+        tracking_data: Comprehensive tracking data
+        logger: Logger instance
+        
+    Returns:
+        Path to created plot
     """
-    logger.info("Creating phylogenetic tree plot")
+    logger.info("Creating tree convergence plot")
     
-    try:
-        # Load the final tree distribution
-        final_tree_file = results_summary.get('final_tree_distribution_file')
-        if not final_tree_file or not Path(final_tree_file).exists():
-            logger.warning(f"Final tree distribution file not found: {final_tree_file}")
-            return None
-        
-        with open(final_tree_file, 'rb') as f:
-            final_tree_distribution = pickle.load(f)
-        
-        # Find the best tree (highest frequency)
-        tree_frequencies = final_tree_distribution['freq']
-        best_tree_idx = np.argmax(tree_frequencies)
-        best_frequency = tree_frequencies[best_tree_idx]
-        
-        # Extract tree data for the best tree
-        tree_structure = final_tree_distribution['tree_structure'][best_tree_idx]
-        node_dict_name = final_tree_distribution['node_dict_name'][best_tree_idx]
-        
-        logger.info(f"Best tree: index {best_tree_idx}, frequency {best_frequency:.3f}")
-        
-        # Generate phylogenetic tree using existing render_tumor_tree function
-        # (following reference from steps 1-4 styling)
-        g = render_tumor_tree(tree_structure, node_dict_name)
-        
-        # Save the tree plot
-        tree_filename = viz_dir / f'{patient_id}_{analysis_mode}_phylogenetic_tree'
-        g.render(filename=tree_filename, format='png', cleanup=True)
-        
-        tree_plot_path = f"{tree_filename}.png"
-        logger.info(f"Saved phylogenetic tree plot: {tree_plot_path}")
-        
-        return tree_plot_path
-        
-    except Exception as e:
-        logger.error(f"Error creating phylogenetic tree plot: {e}")
-        return None
+    timepoints = tracking_data['timepoints']
+    if not timepoints:
+        logger.warning("No timepoint data available for tree convergence plot")
+        return ""
+    
+    # Extract timepoint names and tree frequency data
+    timepoint_names = [tp['timepoint'] for tp in timepoints]
+    
+    # Get initial tree frequencies
+    initial_freqs = tracking_data['initial_tree_distribution']['freq']
+    num_trees = len(initial_freqs)
+    
+    # Prepare data for plotting
+    tree_freq_data = []
+    
+    # Add initial state (timepoint 0)
+    for tree_idx in range(num_trees):
+        tree_freq_data.append({
+            'timepoint': 'Initial',
+            'tree_idx': f'Tree_{tree_idx}',
+            'frequency': initial_freqs[tree_idx]
+        })
+    
+    # Add data for each update timepoint
+    for tp_idx, tp_data in enumerate(timepoints):
+        frequencies_after = tp_data['tree_update']['frequencies_after']
+        for tree_idx in range(min(num_trees, len(frequencies_after))):
+            tree_freq_data.append({
+                'timepoint': tp_data['timepoint'],
+                'tree_idx': f'Tree_{tree_idx}',
+                'frequency': frequencies_after[tree_idx]
+            })
+    
+    # Create DataFrame and plot
+    df_freq = pd.DataFrame(tree_freq_data)
+    
+    plt.figure(figsize=(12, 8))
+    
+    # Create line plot with different colors for each tree
+    colors = plt.cm.Set1(np.linspace(0, 1, num_trees))
+    
+    for tree_idx in range(num_trees):
+        tree_data = df_freq[df_freq['tree_idx'] == f'Tree_{tree_idx}']
+        plt.plot(range(len(tree_data)), tree_data['frequency'], 
+                marker='o', linewidth=2, markersize=6, 
+                color=colors[tree_idx], label=f'Tree {tree_idx}')
+    
+    plt.xlabel('Timepoint', fontsize=12, fontweight='bold')
+    plt.ylabel('Tree Frequency', fontsize=12, fontweight='bold') 
+    plt.title(f'{patient_id} - Tree Frequency Convergence Over Time', 
+              fontsize=14, fontweight='bold')
+    
+    # Set x-axis labels
+    x_labels = ['Initial'] + timepoint_names
+    plt.xticks(range(len(x_labels)), x_labels, rotation=45)
+    
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    
+    # Save plot
+    plot_path = viz_dir / f'{patient_id}_tree_convergence.png'
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    logger.info(f"Saved tree convergence plot: {plot_path}")
+    return str(plot_path)
 
 
-def create_tree_evolution_plot(analysis_mode: str, patient_id: str, viz_dir: Path,
-                              results_summary: Dict, output_dir: Path, logger: logging.Logger) -> Optional[str]:
+def create_marker_selection_evolution_plot(patient_id: str, viz_dir: Path,
+                                         tracking_data: Dict, logger: logging.Logger) -> str:
     """
-    Create tree evolution plots showing how tree weights change over time.
+    Create marker selection evolution plot showing which markers are selected at each timepoint.
     
-    Shows convergence behavior and weight dynamics during the optimization process.
+    Args:
+        patient_id: Patient identifier
+        viz_dir: Visualization directory
+        tracking_data: Comprehensive tracking data
+        logger: Logger instance
+        
+    Returns:
+        Path to created plot
     """
-    logger.info("Creating tree evolution plot")
+    logger.info("Creating marker selection evolution plot")
     
-    try:
-        # Load tree distributions from all timepoints
-        trees_dir = output_dir / f'{analysis_mode}_marker_analysis' / 'updated_trees'
-        
-        if not trees_dir.exists():
-            logger.warning(f"Updated trees directory not found: {trees_dir}")
-            return None
-        
-        # Find all timepoint files
-        timepoint_files = sorted(trees_dir.glob('*timepoint_*.pkl'))
-        
-        if not timepoint_files:
-            logger.warning(f"No timepoint tree files found in {trees_dir}")
-            return None
-        
-        # Load tree frequencies for each timepoint
-        timepoints = []
-        all_tree_frequencies = []
-        
-        # Load initial tree distribution (timepoint 0)
-        initial_file = None
-        for f in timepoint_files:
-            if 'timepoint_0' in f.name:
-                initial_file = f
-                break
-        
-        if initial_file:
-            with open(initial_file, 'rb') as f:
-                initial_tree = pickle.load(f)
-            timepoints.append(0)
-            all_tree_frequencies.append(initial_tree['freq'])
-        
-        # Load subsequent timepoints
-        for i, tree_file in enumerate(timepoint_files[1:], 1):
-            try:
-                with open(tree_file, 'rb') as f:
-                    tree_dist = pickle.load(f)
-                timepoints.append(i)
-                all_tree_frequencies.append(tree_dist['freq'])
-            except Exception as e:
-                logger.warning(f"Could not load {tree_file}: {e}")
-                continue
-        
-        if len(timepoints) < 2:
-            logger.warning("Insufficient timepoint data for evolution plot")
-            return None
-        
-        # Create the evolution plot
-        plt.figure(figsize=(12, 8))
-        
-        # Find trees with meaningful frequencies (>1%)
-        n_trees = len(all_tree_frequencies[0])
-        for tree_idx in range(n_trees):
-            tree_freqs_over_time = [freqs[tree_idx] for freqs in all_tree_frequencies]  # Already in percentage scale
-            
-            # Only plot trees that have significant frequency at some point
-            if max(tree_freqs_over_time) > 1.0:  # 1% threshold
-                # Color by whether frequency increases or decreases
-                final_freq = tree_freqs_over_time[-1]
-                initial_freq = tree_freqs_over_time[0]
-                
-                if final_freq > initial_freq:
-                    color = "tab:orange"  # Increasing frequency
-                    alpha = 0.8
-                else:
-                    color = "tab:blue"   # Decreasing frequency
-                    alpha = 0.6
-                
-                plt.plot(timepoints, tree_freqs_over_time, 
-                        marker='o', linestyle='-', color=color, 
-                        alpha=alpha, markersize=4, linewidth=2,
-                        label=f'Tree {tree_idx}' if tree_idx < 5 else "")
-        
-        # Customize the plot
-        plt.xlabel('Timepoint', fontweight='bold', fontsize=12)
-        plt.ylabel('Tree Weight/Frequency (%)', fontweight='bold', fontsize=12)
-        plt.title(f'{patient_id} - Tree Evolution Over Time ({analysis_mode.title()} Analysis)',
-                 fontsize=14, fontweight='bold')
-        
-        # Add grid for better readability
-        plt.grid(True, alpha=0.3)
-        
-        # Add legend for first few trees only (to avoid clutter)
-        if n_trees <= 5:
-            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        
-        # Set x-axis to show integer timepoints
-        plt.xticks(timepoints)
-        plt.xlim(-0.1, max(timepoints) + 0.1)
-        plt.ylim(0, 100)  # 0-100% since frequencies are already in percentage scale
-        
-        # Save the plot
-        evolution_plot_path = viz_dir / f'{patient_id}_{analysis_mode}_tree_evolution.png'
-        plt.tight_layout()
-        plt.savefig(evolution_plot_path, dpi=300, bbox_inches='tight', facecolor='white')
-        plt.close()
-        
-        logger.info(f"Saved tree evolution plot: {evolution_plot_path}")
-        return str(evolution_plot_path)
-        
-    except Exception as e:
-        logger.error(f"Error creating tree evolution plot: {e}")
-        return None
-
-
-def create_vaf_plots(analysis_mode: str, patient_id: str, viz_dir: Path,
-                    results_summary: Dict, timepoint_data: Dict, logger: logging.Logger) -> Optional[str]:
-    """
-    Create VAF (Variant Allele Frequency) plots.
+    timepoints = tracking_data['timepoints']
+    if not timepoints:
+        logger.warning("No timepoint data available for marker evolution plot")
+        return ""
     
-    For fixed mode: Display VAF plots of the CHOSEN markers
-    For dynamic mode: Display VAF plots of the final, best, converged markers
-    """
-    logger.info(f"Creating VAF plots for {analysis_mode} mode")
+    # Extract marker selection data
+    timepoint_names = []
+    fraction_markers = []
+    structure_markers = []
+    selected_markers = []
     
-    try:
-        if analysis_mode == 'fixed':
-            return create_fixed_marker_vaf_plots(patient_id, viz_dir, results_summary, timepoint_data, logger)
-        elif analysis_mode == 'dynamic':
-            return create_dynamic_marker_vaf_plots(patient_id, viz_dir, results_summary, timepoint_data, logger)
+    for tp_data in timepoints:
+        timepoint_names.append(tp_data['timepoint'])
+        
+        # Get markers from both optimization strategies
+        marker_sel = tp_data['marker_selection']
+        fraction_markers.append(marker_sel['fraction_optimization']['markers'])
+        structure_markers.append(marker_sel['structure_optimization']['markers'])
+        selected_markers.append(tp_data['selected_markers'])
+    
+    # Create subplot figure
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(14, 12))
+    
+    # Plot 1: Selected markers over time
+    all_markers = set()
+    for markers in selected_markers:
+        all_markers.update(markers)
+    
+    if all_markers:
+        all_markers = sorted(list(all_markers))
+        selection_matrix = np.zeros((len(all_markers), len(timepoint_names)))
+        
+        for t_idx, markers in enumerate(selected_markers):
+            for marker in markers:
+                if marker in all_markers:
+                    m_idx = all_markers.index(marker)
+                    selection_matrix[m_idx, t_idx] = 1
+        
+        # Create heatmap for selected markers
+        sns.heatmap(selection_matrix, 
+                   xticklabels=timepoint_names,
+                   yticklabels=all_markers,
+                   cmap='Blues', 
+                   cbar=True,
+                   ax=ax1)
+        ax1.set_title(f'{patient_id} - Final Selected Markers Over Time', fontweight='bold')
+        ax1.set_xlabel('Timepoint')
+        ax1.set_ylabel('Markers')
+    
+    # Plot 2: Fraction vs Structure marker comparison
+    strategy_data = []
+    for t_idx, tp_name in enumerate(timepoint_names):
+        frac_markers = fraction_markers[t_idx]
+        struct_markers = structure_markers[t_idx]
+        
+        strategy_data.append({
+            'timepoint': tp_name,
+            'fraction_markers': len(frac_markers),
+            'structure_markers': len(struct_markers),
+            'overlap': len(set(frac_markers) & set(struct_markers))
+        })
+    
+    df_strategy = pd.DataFrame(strategy_data)
+    
+    x_pos = np.arange(len(timepoint_names))
+    width = 0.25
+    
+    ax2.bar(x_pos - width, df_strategy['fraction_markers'], width, 
+           label='Fraction Optimization', color='orange', alpha=0.8)
+    ax2.bar(x_pos, df_strategy['structure_markers'], width,
+           label='Structure Optimization', color='green', alpha=0.8)
+    ax2.bar(x_pos + width, df_strategy['overlap'], width,
+           label='Overlap', color='purple', alpha=0.8)
+    
+    ax2.set_xlabel('Timepoint')
+    ax2.set_ylabel('Number of Markers')
+    ax2.set_title('Marker Selection Strategy Comparison', fontweight='bold')
+    ax2.set_xticks(x_pos)
+    ax2.set_xticklabels(timepoint_names, rotation=45)
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+    
+    # Plot 3: Marker consistency over time
+    marker_consistency = []
+    for t_idx in range(len(timepoint_names)):
+        if t_idx == 0:
+            consistency = 1.0  # First timepoint is always 100% consistent with itself
         else:
-            logger.error(f"Unknown analysis mode: {analysis_mode}")
-            return None
-            
-    except Exception as e:
-        logger.error(f"Error creating VAF plots: {e}")
-        return None
-
-
-def create_fixed_marker_vaf_plots(patient_id: str, viz_dir: Path, results_summary: Dict,
-                                 timepoint_data: Dict, logger: logging.Logger) -> Optional[str]:
-    """
-    Create VAF plots for fixed marker analysis showing the chosen markers.
-    """
-    logger.info("Creating VAF plots for fixed markers")
+            prev_markers = set(selected_markers[t_idx-1])
+            curr_markers = set(selected_markers[t_idx])
+            if prev_markers:
+                consistency = len(prev_markers & curr_markers) / len(prev_markers)
+            else:
+                consistency = 0.0
+        marker_consistency.append(consistency)
     
-    try:
-        # Get fixed markers from analysis summary
-        analysis_summary = results_summary.get('analysis_summary', {})
-        fixed_gene_names = analysis_summary.get('fixed_gene_names', [])
-        
-        if not fixed_gene_names:
-            logger.warning("No fixed gene names found in results summary")
-            return None
-        
-        # Collect VAF data across timepoints
-        vaf_data = []
-        sorted_timepoints = sorted(timepoint_data.keys())
-        
-        for timepoint in sorted_timepoints:
-            timepoint_df = timepoint_data[timepoint]
-            
-            for gene_name in fixed_gene_names:
-                if gene_name in timepoint_df.index:
-                    mut_count = timepoint_df.loc[gene_name, 'MutDOR']
-                    total_count = timepoint_df.loc[gene_name, 'DOR']
-                    vaf = mut_count / total_count if total_count > 0 else 0
-                    
-                    vaf_data.append({
-                        'timepoint': timepoint,
-                        'marker': gene_name,
-                        'vaf': vaf,
-                        'mut_count': mut_count,
-                        'total_count': total_count
-                    })
-        
-        if not vaf_data:
-            logger.warning("No VAF data collected for fixed markers")
-            return None
-        
-        # Create VAF plot
-        df_vaf = pd.DataFrame(vaf_data)
-        
-        plt.figure(figsize=(12, 8))
-        
-        # Use different colors for each marker
-        n_markers = len(fixed_gene_names)
-        colors = sns.color_palette("Set2", n_markers)
-        
-        for i, marker in enumerate(fixed_gene_names):
-            marker_data = df_vaf[df_vaf['marker'] == marker]
-            if not marker_data.empty:
-                plt.plot(marker_data['timepoint'], marker_data['vaf'], 
-                        marker='o', linestyle='-', color=colors[i], 
-                        markersize=6, linewidth=2, label=marker)
-        
-        # Customize the plot
-        plt.xlabel('Timepoint', fontweight='bold', fontsize=12)
-        plt.ylabel('VAF (Variant Allele Frequency)', fontweight='bold', fontsize=12)
-        plt.title(f'{patient_id} - Fixed Marker VAF Over Time',
-                 fontsize=14, fontweight='bold')
-        
-        # Format timepoint labels (rotate if many)
-        if len(sorted_timepoints) > 6:
-            plt.xticks(rotation=45)
-        
-        plt.grid(True, alpha=0.3)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.ylim(0, max(df_vaf['vaf']) * 1.1)
-        
-        # Save the plot
-        vaf_plot_path = viz_dir / f'{patient_id}_fixed_marker_vaf.png'
-        plt.tight_layout()
-        plt.savefig(vaf_plot_path, dpi=300, bbox_inches='tight', facecolor='white')
-        plt.close()
-        
-        logger.info(f"Saved fixed marker VAF plot: {vaf_plot_path}")
-        return str(vaf_plot_path)
-        
-    except Exception as e:
-        logger.error(f"Error creating fixed marker VAF plots: {e}")
-        return None
-
-
-def create_dynamic_marker_vaf_plots(patient_id: str, viz_dir: Path, results_summary: Dict,
-                                   timepoint_data: Dict, logger: logging.Logger) -> Optional[str]:
-    """
-    Create VAF plots for dynamic marker analysis showing the final converged markers.
-    """
-    logger.info("Creating VAF plots for dynamic markers")
+    ax3.plot(range(len(timepoint_names)), marker_consistency, 
+            marker='o', linewidth=2, markersize=8, color='red')
+    ax3.set_xlabel('Timepoint')
+    ax3.set_ylabel('Marker Consistency')
+    ax3.set_title('Marker Selection Consistency Over Time', fontweight='bold')
+    ax3.set_xticks(range(len(timepoint_names)))
+    ax3.set_xticklabels(timepoint_names, rotation=45)
+    ax3.set_ylim(0, 1.1)
+    ax3.grid(True, alpha=0.3)
     
-    try:
-        # Get marker selections from all timepoints
-        all_marker_selections = results_summary.get('all_marker_selections', [])
-        
-        if not all_marker_selections:
-            logger.warning("No marker selections found in results summary")
-            return None
-        
-        # Get the final timepoint marker selection (the "converged" markers)
-        final_selection = all_marker_selections[-1]
-        final_markers = final_selection.get('selected_gene_names', [])
-        
-        if not final_markers:
-            logger.warning("No final markers found in dynamic analysis")
-            return None
-        
-        logger.info(f"Using final converged markers: {final_markers}")
-        
-        # Collect VAF data for final markers across all timepoints where they were measured
-        vaf_data = []
-        
-        for selection in all_marker_selections:
-            timepoint = selection['timepoint']
-            selected_markers = selection.get('selected_gene_names', [])
-            ddpcr_measurements = selection.get('ddpcr_measurements', [])
-            
-            # Only include final markers that were actually measured
-            for measurement in ddpcr_measurements:
-                gene_name = measurement['gene']
-                if gene_name in final_markers:
-                    mut_count = measurement['mut']
-                    total_count = mut_count + measurement['WT']
-                    vaf = mut_count / total_count if total_count > 0 else 0
-                    
-                    vaf_data.append({
-                        'timepoint': timepoint,
-                        'marker': gene_name,
-                        'vaf': vaf,
-                        'mut_count': mut_count,
-                        'total_count': total_count
-                    })
-        
-        if not vaf_data:
-            logger.warning("No VAF data collected for dynamic markers")
-            return None
-        
-        # Create VAF plot
-        df_vaf = pd.DataFrame(vaf_data)
-        
-        plt.figure(figsize=(12, 8))
-        
-        # Use different colors for each marker
-        unique_markers = df_vaf['marker'].unique()
-        n_markers = len(unique_markers)
-        colors = sns.color_palette("Set2", n_markers)
-        
-        for i, marker in enumerate(unique_markers):
-            marker_data = df_vaf[df_vaf['marker'] == marker]
-            if not marker_data.empty:
-                plt.plot(marker_data['timepoint'], marker_data['vaf'], 
-                        marker='o', linestyle='-', color=colors[i], 
-                        markersize=6, linewidth=2, label=marker)
-        
-        # Customize the plot
-        plt.xlabel('Timepoint', fontweight='bold', fontsize=12)
-        plt.ylabel('VAF (Variant Allele Frequency)', fontweight='bold', fontsize=12)
-        plt.title(f'{patient_id} - Dynamic Marker VAF Over Time (Final Converged Markers)',
-                 fontsize=14, fontweight='bold')
-        
-        # Format timepoint labels (rotate if many)
-        timepoints = sorted(df_vaf['timepoint'].unique())
-        if len(timepoints) > 6:
-            plt.xticks(rotation=45)
-        
-        plt.grid(True, alpha=0.3)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.ylim(0, max(df_vaf['vaf']) * 1.1)
-        
-        # Save the plot
-        vaf_plot_path = viz_dir / f'{patient_id}_dynamic_marker_vaf.png'
-        plt.tight_layout()
-        plt.savefig(vaf_plot_path, dpi=300, bbox_inches='tight', facecolor='white')
-        plt.close()
-        
-        logger.info(f"Saved dynamic marker VAF plot: {vaf_plot_path}")
-        return str(vaf_plot_path)
-        
-    except Exception as e:
-        logger.error(f"Error creating dynamic marker VAF plots: {e}")
-        return None
+    plt.tight_layout()
+    
+    # Save plot
+    plot_path = viz_dir / f'{patient_id}_marker_evolution.png'
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    logger.info(f"Saved marker evolution plot: {plot_path}")
+    return str(plot_path)
 
 
-def create_dynamic_marker_selection_plot(patient_id: str, viz_dir: Path, 
-                                        results_summary: Dict, logger: logging.Logger) -> Optional[str]:
+def create_clonal_frequency_evolution_plot(patient_id: str, viz_dir: Path,
+                                         tracking_data: Dict, logger: logging.Logger) -> str:
     """
-    Create marker selection plot for dynamic analysis showing which markers 
-    are selected at each timepoint from the optimization step.
+    Create clonal frequency evolution plot showing how clone frequencies change over time.
     
-    X-axis: Time points
-    Y-axis: Markers that were actually selected during the analysis
-    Fill: Whether marker was selected at that timepoint
+    Args:
+        patient_id: Patient identifier
+        viz_dir: Visualization directory
+        tracking_data: Comprehensive tracking data
+        logger: Logger instance
+        
+    Returns:
+        Path to created plot
     """
-    logger.info("Creating dynamic marker selection plot")
+    logger.info("Creating clonal frequency evolution plot")
     
-    try:
-        # Get marker selections from all timepoints
-        all_marker_selections = results_summary.get('all_marker_selections', [])
+    timepoints = tracking_data['timepoints']
+    if not timepoints:
+        logger.warning("No timepoint data available for clonal frequency plot")
+        return ""
+    
+    # Extract clonal frequency data
+    clone_freq_data = []
+    
+    # Get initial clonal frequencies (calculate from initial tree distribution)
+    initial_tree_dist = tracking_data['initial_tree_distribution']
+    initial_clones = set()
+    for vaf_frac in initial_tree_dist['vaf_frac']:
+        initial_clones.update(vaf_frac.keys())
+    
+    # Add initial state
+    for clone in initial_clones:
+        clone_freq_data.append({
+            'timepoint': 'Initial',
+            'clone_id': f'clone_{clone}', 
+            'frequency': 0.0  # Would need to calculate from initial data
+        })
+    
+    # Add data for each timepoint
+    for tp_data in timepoints:
+        clonal_freqs_before = tp_data['clonal_frequencies']['before']
+        clonal_freqs_after = tp_data['clonal_frequencies']['after']
         
-        if not all_marker_selections:
-            logger.warning("No marker selections found for dynamic selection plot")
-            return None
+        # Use 'after' frequencies for tracking evolution
+        for clone_id, frequency in clonal_freqs_after.items():
+            clone_freq_data.append({
+                'timepoint': tp_data['timepoint'],
+                'clone_id': clone_id,
+                'frequency': frequency
+            })
+    
+    if not clone_freq_data:
+        logger.warning("No clonal frequency data to plot")
+        return ""
+    
+    df_clones = pd.DataFrame(clone_freq_data)
+    
+    plt.figure(figsize=(12, 8))
+    
+    # Plot each clone as a separate line
+    unique_clones = df_clones['clone_id'].unique()
+    colors = plt.cm.Set3(np.linspace(0, 1, len(unique_clones)))
+    
+    for clone_idx, clone_id in enumerate(unique_clones):
+        clone_data = df_clones[df_clones['clone_id'] == clone_id]
+        plt.plot(range(len(clone_data)), clone_data['frequency'],
+                marker='o', linewidth=2, markersize=6,
+                color=colors[clone_idx], label=clone_id)
+    
+    plt.xlabel('Timepoint', fontsize=12, fontweight='bold')
+    plt.ylabel('Clonal Frequency', fontsize=12, fontweight='bold')
+    plt.title(f'{patient_id} - Clonal Frequency Evolution Over Time', 
+              fontsize=14, fontweight='bold')
+    
+    # Set x-axis labels
+    unique_timepoints = df_clones['timepoint'].unique()
+    plt.xticks(range(len(unique_timepoints)), unique_timepoints, rotation=45)
+    
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    
+    # Save plot
+    plot_path = viz_dir / f'{patient_id}_clonal_frequency_evolution.png'
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    logger.info(f"Saved clonal frequency evolution plot: {plot_path}")
+    return str(plot_path)
+
+
+def create_entropy_evolution_plot(patient_id: str, viz_dir: Path,
+                                tracking_data: Dict, logger: logging.Logger) -> str:
+    """
+    Create entropy evolution plot showing convergence metrics over time.
+    
+    Args:
+        patient_id: Patient identifier  
+        viz_dir: Visualization directory
+        tracking_data: Comprehensive tracking data
+        logger: Logger instance
         
-        # Extract all unique markers that were selected across all timepoints
-        all_markers = set()
-        timepoints = []
-        
-        for selection in all_marker_selections:
-            selected_gene_names = selection.get('selected_gene_names', [])
-            all_markers.update(selected_gene_names)
-            timepoints.append(selection['timepoint'])
-        
-        if not all_markers:
-            logger.warning("No markers found in selection data")
-            return None
-        
-        # Sort markers and timepoints for consistent ordering
-        sorted_markers = sorted(list(all_markers))
-        sorted_timepoints = sorted(timepoints)
-        
-        logger.info(f"Creating selection plot with {len(sorted_markers)} markers across {len(sorted_timepoints)} timepoints")
-        
-        # Create selection matrix (markers x timepoints)
-        # 1 = selected, 0 = not selected
-        selection_matrix = np.zeros((len(sorted_markers), len(sorted_timepoints)))
-        
-        for t_idx, timepoint in enumerate(sorted_timepoints):
-            # Find the selection data for this timepoint
-            timepoint_selection = None
-            for selection in all_marker_selections:
-                if selection['timepoint'] == timepoint:
-                    timepoint_selection = selection
-                    break
-            
-            if timepoint_selection:
-                selected_markers = timepoint_selection.get('selected_gene_names', [])
-                for marker in selected_markers:
-                    if marker in sorted_markers:
-                        marker_idx = sorted_markers.index(marker)
-                        selection_matrix[marker_idx, t_idx] = 1
-        
-        # Create the heatmap plot using seaborn for clean boxes
-        # Make it much larger for better readability
-        fig_height = max(12, len(sorted_markers) * 0.4)  # At least 12 inches, scale with markers
-        fig_width = max(10, len(sorted_timepoints) * 1.2)  # At least 10 inches, scale with timepoints
-        
-        plt.figure(figsize=(fig_width, fig_height))
-        
-        # Convert matrix to DataFrame for seaborn
-        df_selection = pd.DataFrame(
-            selection_matrix, 
-            index=sorted_markers, 
-            columns=sorted_timepoints
-        )
-        
-        # Create clean heatmap with seaborn
-        ax = sns.heatmap(
-            df_selection,
-            cmap='Blues',  # Dark blue for selected, light for not selected
-            cbar=False,  # Remove colorbar since selection status is obvious from colors
-            linewidths=0.5,  # Add thin lines between cells for cleaner separation
-            linecolor='white',
-            square=False,  # Allow rectangular cells
-            xticklabels=True,
-            yticklabels=True,
-            vmin=0,  # Ensure consistent color scaling
-            vmax=1
-        )
-        
-        # Customize the plot
-        plt.title(f'{patient_id} - Dynamic Marker Selection Over Time\n'
-                 f'Dark = Selected, Light = Not Selected', 
-                 fontsize=16, fontweight='bold', pad=20)
-        
-        # Set axis labels
-        plt.xlabel('Timepoint', fontweight='bold', fontsize=14)
-        plt.ylabel('Markers', fontweight='bold', fontsize=14)
-        
-        # Customize axis ticks
-        # Rotate timepoint labels for better readability
-        plt.xticks(rotation=45, ha='right', fontsize=10)
-        
-        # Set marker labels with smaller font for better fit
-        plt.yticks(fontsize=8, rotation=0)
-        
-        # Adjust layout to prevent label cutoff
-        plt.tight_layout()
-        
-        # Save the plot
-        selection_plot_path = viz_dir / f'{patient_id}_dynamic_marker_selection.png'
-        plt.savefig(selection_plot_path, dpi=300, bbox_inches='tight', facecolor='white')
-        plt.close()
-        
-        logger.info(f"Saved dynamic marker selection plot: {selection_plot_path}")
-        logger.info(f"Plot shows {len(sorted_markers)} markers across {len(sorted_timepoints)} timepoints")
-        
-        return str(selection_plot_path)
-        
-    except Exception as e:
-        logger.error(f"Error creating dynamic marker selection plot: {e}")
-        import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
-        return None
+    Returns:
+        Path to created plot
+    """
+    logger.info("Creating entropy evolution plot")
+    
+    timepoints = tracking_data['timepoints']
+    if not timepoints:
+        logger.warning("No timepoint data available for entropy plot")
+        return ""
+    
+    # Extract entropy data
+    timepoint_names = []
+    entropy_before = []
+    entropy_after = []
+    entropy_changes = []
+    
+    for tp_data in timepoints:
+        timepoint_names.append(tp_data['timepoint'])
+        entropy_before.append(tp_data['tree_update']['entropy_before'])
+        entropy_after.append(tp_data['tree_update']['entropy_after'])
+        entropy_changes.append(tp_data['tree_update']['entropy_change'])
+    
+    # Create subplot figure
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
+    
+    # Plot 1: Entropy evolution
+    x_pos = range(len(timepoint_names))
+    ax1.plot(x_pos, entropy_before, marker='o', linewidth=2, markersize=6,
+            color='blue', label='Entropy Before Update')
+    ax1.plot(x_pos, entropy_after, marker='s', linewidth=2, markersize=6,
+            color='red', label='Entropy After Update')
+    
+    ax1.set_xlabel('Timepoint')
+    ax1.set_ylabel('Entropy')
+    ax1.set_title(f'{patient_id} - Tree Distribution Entropy Evolution', fontweight='bold')
+    ax1.set_xticks(x_pos)
+    ax1.set_xticklabels(timepoint_names, rotation=45)
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # Plot 2: Entropy changes
+    colors = ['green' if change < 0 else 'orange' for change in entropy_changes]
+    ax2.bar(x_pos, entropy_changes, color=colors, alpha=0.7)
+    ax2.axhline(y=0, color='black', linestyle='-', alpha=0.3)
+    ax2.set_xlabel('Timepoint')
+    ax2.set_ylabel('Entropy Change')
+    ax2.set_title('Entropy Change Per Update (Green=Convergence, Orange=Divergence)', fontweight='bold')
+    ax2.set_xticks(x_pos)
+    ax2.set_xticklabels(timepoint_names, rotation=45)
+    ax2.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    
+    # Save plot
+    plot_path = viz_dir / f'{patient_id}_entropy_evolution.png'
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    logger.info(f"Saved entropy evolution plot: {plot_path}")
+    return str(plot_path)
 
 
 def save_visualization_summary(viz_dir: Path, plot_files: Dict[str, str], 
-                              analysis_mode: str, patient_id: str) -> Path:
+                             tracking_data: Dict) -> str:
     """
-    Save a summary of all generated visualization files.
+    Save visualization summary JSON file.
     
     Args:
         viz_dir: Visualization directory
-        plot_files: Dictionary of plot types to file paths
-        analysis_mode: Analysis mode
-        patient_id: Patient identifier
+        plot_files: Dictionary of created plot files
+        tracking_data: Comprehensive tracking data
         
     Returns:
         Path to summary file
     """
     summary_data = {
-        'patient_id': patient_id,
-        'analysis_mode': analysis_mode,
-        'visualization_files': plot_files,
-        'description': {
-            'phylogenetic_tree': 'Best/converged phylogenetic tree from analysis',
-            'tree_evolution': 'Tree weight changes over time showing convergence',
-            'vaf_plots': f'VAF plots for {analysis_mode} markers over time'
-        }
+        'patient_id': tracking_data['patient_id'],
+        'analysis_type': 'unified_longitudinal',
+        'visualization_timestamp': pd.Timestamp.now().isoformat(),
+        'total_timepoints': len(tracking_data['timepoints']),
+        'plot_files': plot_files,
+        'convergence_summary': tracking_data.get('convergence_summary', {}),
+        'final_results_summary': tracking_data.get('final_results', {})
     }
     
-    # Add marker selection plot description for dynamic mode
-    if analysis_mode == 'dynamic' and 'marker_selection' in plot_files:
-        summary_data['description']['marker_selection'] = 'Heatmap showing which markers are selected at each timepoint'
-    
-    summary_file = viz_dir / 'visualization_summary.json'
-    with open(summary_file, 'w') as f:
+    summary_path = viz_dir / 'visualization_summary.json'
+    with open(summary_path, 'w') as f:
         json.dump(summary_data, f, indent=2, default=str)
     
-    return summary_file
+    return str(summary_path)

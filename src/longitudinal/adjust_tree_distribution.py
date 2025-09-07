@@ -291,14 +291,33 @@ def update_tree_distribution(tree_distribution, accepted_tree_indices):
         updated_item_list = [item_list[idx] for idx in accepted_tree_indices]
         updated_tree_distribution[key] = updated_item_list
     return updated_tree_distribution
-def update_tree_distribution_bayesian(tree_distribution, update_tree_freq_list):
+def update_tree_distribution_bayesian(tree_distribution, updated_tree_freq_list):
+    """
+    Update tree distribution with new frequencies while preserving all other data.
+    
+    This function creates a new tree distribution with updated frequencies
+    while keeping all tree structures, node assignments, and VAF data intact.
+    
+    Args:
+        tree_distribution: Original tree distribution dictionary
+        updated_tree_freq_list: New tree frequencies from Bayesian updating
+        
+    Returns:
+        Updated tree distribution dictionary
+    """
     updated_tree_distribution = {}
     for key, item_list in tree_distribution.items():
-        print(key, len(item_list))
         if key != 'freq':
+            # Keep all other fields unchanged (tree_structure, node_dict, vaf_frac, etc.)
             updated_tree_distribution[key] = item_list
         else:
-            updated_tree_distribution['freq'] = update_tree_freq_list
+            # Only update the frequency field
+            updated_tree_distribution['freq'] = updated_tree_freq_list
+    
+    # Log the update for debugging
+    freq_changes = len([i for i, (old, new) in enumerate(zip(tree_distribution['freq'], updated_tree_freq_list)) if abs(old - new) > 0.01])
+    print(f"Updated tree distribution: {freq_changes} trees had significant frequency changes")
+    
     return updated_tree_distribution
 
 def mut2node(node_dict):

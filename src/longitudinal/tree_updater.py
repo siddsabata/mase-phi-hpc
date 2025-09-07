@@ -69,12 +69,13 @@ def process_ddpcr_measurements(selected_gene_names: List[str], timepoint_data: p
 
 def update_tree_distribution(current_tree_summary: Dict, ddpcr_marker_counts: List[int], 
                            read_depth_list: List[int], marker_idx2gene: Dict, 
-                           logger: logging.Logger) -> Dict:
+                           logger: logging.Logger) -> Tuple[Dict, Dict]:
     """
     Update tree distribution using Bayesian inference with ddPCR measurements.
     
-    This function takes the current tree distribution and updates the tree frequencies
-    based on ddPCR measurements using Bayesian inference.
+    This function implements the corrected longitudinal updating algorithm from Mase-phi
+    that updates tree frequencies AND recalculates clonal frequencies using the proper
+    vaf_frac averaging approach.
     
     Args:
         current_tree_summary: Current tree distribution summary
@@ -84,14 +85,17 @@ def update_tree_distribution(current_tree_summary: Dict, ddpcr_marker_counts: Li
         logger: Logger instance
         
     Returns:
-        Updated tree distribution summary
+        Tuple of (updated_tree_distribution_summary, update_tracking_data)
     """
-    logger.info("Updating tree distributions using Bayesian inference...")
+    logger.info("Updating tree distributions using corrected Bayesian inference...")
     
     # Extract tree information from summary
     tree_list_summary = current_tree_summary['tree_structure']
     node_name_list_summary = current_tree_summary['node_dict_name']
     tree_freq_list_summary = current_tree_summary['freq']
+    
+    # Store original state for tracking
+    original_entropy = -np.sum([f * np.log(f + 1e-10) for f in tree_freq_list_summary if f > 0])
     
     # Update tree distributions using Bayesian approach
     updated_tree_freq_list = adjust_tree_distribution_struct_bayesian(
@@ -99,32 +103,63 @@ def update_tree_distribution(current_tree_summary: Dict, ddpcr_marker_counts: Li
         tree_freq_list_summary, read_depth_list,
         ddpcr_marker_counts, marker_idx2gene)
     
-    # Create updated tree distribution summary
+    # Create updated tree distribution summary with new frequencies
     updated_tree_distribution_summary = update_tree_distribution_bayesian(
         current_tree_summary, updated_tree_freq_list)
     
-    # Log the update results
-    original_entropy = -np.sum([f * np.log(f + 1e-10) for f in tree_freq_list_summary if f > 0])
-    updated_entropy = -np.sum([f * np.log(f + 1e-10) for f in updated_tree_freq_list if f > 0])
+    # CORRECTED ALGORITHM: Recalculate clonal frequencies using vaf_frac averaging
+    # This is the key missing piece from the original implementation
+    clonal_freq_list = []
+    for idx in range(len(updated_tree_distribution_summary['vaf_frac'])):
+        clonal_freq_dict = updated_tree_distribution_summary['vaf_frac'][idx]
+        clonal_freq_dict_new = {}
+        for node, freqs in clonal_freq_dict.items():
+            # Use the correct averaging method from Mase-phi lines 84-89
+            clonal_freq_dict_new[node] = [list(np.array(freqs).mean(axis=0))]
+        clonal_freq_list.append(clonal_freq_dict_new)
     
+    # Calculate entropy change and other tracking metrics
+    updated_entropy = -np.sum([f * np.log(f + 1e-10) for f in updated_tree_freq_list if f > 0])
+    entropy_change = updated_entropy - original_entropy
+    
+    # Create comprehensive tracking data
+    update_tracking_data = {
+        'tree_frequencies_before': tree_freq_list_summary,
+        'tree_frequencies_after': updated_tree_freq_list,
+        'entropy_before': original_entropy,
+        'entropy_after': updated_entropy,
+        'entropy_change': entropy_change,
+        'clonal_freq_list': clonal_freq_list,  # Recalculated clonal frequencies
+        'ddpcr_measurements': {
+            'marker_counts': ddpcr_marker_counts,
+            'read_depths': read_depth_list,
+            'markers': [marker_idx2gene[i] for i in range(len(ddpcr_marker_counts))]
+        }
+    }
+    
+    # Log the update results
     logger.info(f"Tree frequency update completed")
     logger.info(f"Original entropy: {original_entropy:.4f}")
     logger.info(f"Updated entropy: {updated_entropy:.4f}")
-    logger.info(f"Entropy change: {updated_entropy - original_entropy:.4f}")
+    logger.info(f"Entropy change: {entropy_change:.4f}")
+    logger.info(f"Recalculated clonal frequencies for {len(clonal_freq_list)} trees")
     
-    return updated_tree_distribution_summary
+    return updated_tree_distribution_summary, update_tracking_data
 
 
-def prepare_tree_components_for_analysis(tree_distribution_summary: Dict, 
-                                       logger: logging.Logger) -> Tuple[List, List, List, List]:
+def prepare_tree_components_for_marker_selection(tree_distribution_summary: Dict, 
+                                               clonal_freq_list: List[Dict],
+                                               logger: logging.Logger) -> Tuple[List, List, List, List]:
     """
     Extract and prepare tree components for marker selection analysis.
     
     This function prepares tree data in the format expected by the marker
-    selection optimization functions.
+    selection optimization functions. It now takes pre-calculated clonal
+    frequencies from the corrected update process.
     
     Args:
         tree_distribution_summary: Tree distribution summary from aggregation or previous update
+        clonal_freq_list: Pre-calculated clonal frequencies from update process
         logger: Logger instance
         
     Returns:
@@ -135,15 +170,15 @@ def prepare_tree_components_for_analysis(tree_distribution_summary: Dict,
     node_list = tree_distribution_summary['node_dict']
     tree_freq_list = tree_distribution_summary['freq']
     
-    # Recalculate clonal frequencies by averaging across samples
-    clonal_freq_list = []
-    for idx in range(len(tree_distribution_summary['vaf_frac'])):
-        clonal_freq_dict = tree_distribution_summary['vaf_frac'][idx]
-        clonal_freq_dict_new = {}
+    # Convert clonal_freq_list to format expected by marker selection
+    clonal_freq_list_processed = []
+    for clonal_freq_dict in clonal_freq_list:
+        clonal_freq_dict_processed = {}
         for node, freqs in clonal_freq_dict.items():
-            clonal_freq_dict_new[node] = [list(np.array(freqs).mean(axis=0))]
-        clonal_freq_list.append(clonal_freq_dict_new)
+            # Ensure proper integer node keys and extract frequency values
+            clonal_freq_dict_processed[int(node)] = freqs[0] if isinstance(freqs[0], list) else freqs
+        clonal_freq_list_processed.append(clonal_freq_dict_processed)
     
-    logger.info(f"Prepared tree components: {len(tree_list)} trees")
+    logger.info(f"Prepared tree components: {len(tree_list)} trees for marker selection")
     
-    return tree_list, node_list, tree_freq_list, clonal_freq_list
+    return tree_list, node_list, tree_freq_list, clonal_freq_list_processed

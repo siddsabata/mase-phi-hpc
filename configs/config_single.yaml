@@ -1,14 +1,14 @@
 # Patient and analysis identification
-patient_id: "ppi_115"
+patient_id: "cruk0044"
 
 # Input files and directories - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
 input:
-  ssm_file: "/home/ssabata/mase-phi-hpc/data/vaf_filter_test/ssm_ppi_115.txt"
+  ssm_file: "/home/ssabata/masephi-test/cruk0044_data/ssm.txt"
   code_dir: "/home/ssabata/mase-phi-hpc/"  
 
 # Output configuration
 output:
-  base_dir: "/home/ssabata/patient_data/vaf_filter_test/"  # Patient base directory
+  base_dir: "/home/ssabata/masephi-test/cruk0044/"  # Patient base directory
 
 # Step 1: Bootstrap configuration
 bootstrap:

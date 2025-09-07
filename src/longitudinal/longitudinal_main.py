@@ -21,21 +21,20 @@ from pathlib import Path
 # Import our modular components
 from config_handler import parse_args, load_config, config_to_args, validate_input_files
 from data_loader import load_tree_distributions, load_tissue_data_from_ssm, load_longitudinal_data_from_csv
-from fixed_analysis import run_fixed_marker_analysis
-from dynamic_analysis import run_dynamic_marker_analysis
+from longitudinal_pipeline import run_unified_longitudinal_analysis
 from output_manager import setup_logging, save_final_report
 
 
 def main():
     """
-    Main entry point for the longitudinal analysis pipeline.
+    Main entry point for the unified longitudinal analysis pipeline.
     
-    This simplified version focuses on core functionality:
+    This unified version implements the corrected longitudinal updating algorithm:
     - Load configuration from YAML files
     - Validate inputs
     - Load data
-    - Run either fixed or dynamic analysis (not both)
-    - Save results in standardized format
+    - Run unified longitudinal analysis with marker selection at each timepoint
+    - Save results in comprehensive JSON format
     """
     # Initialize a basic logger for early error handling
     logger = logging.getLogger('main_pipeline')
@@ -59,10 +58,9 @@ def main():
         output_dir = Path(args.output_dir)
         logger = setup_logging(output_dir, args.patient_id)
         
-        logger.info("=== Longitudinal Cancer Evolution Analysis Pipeline v2.0 ===")
+        logger.info("=== Unified Longitudinal Cancer Evolution Analysis Pipeline v2.0 ===")
         logger.info(f"Configuration file: {cmd_args.config}")
         logger.info(f"Patient ID: {args.patient_id}")
-        logger.info(f"Analysis mode: {args.analysis_mode}")
         logger.info(f"Output directory: {output_dir}")
         
         # Log configuration summary
@@ -75,8 +73,7 @@ def main():
         logger.info(f"    - N markers: {args.n_markers}")
         logger.info(f"    - Read depth: {args.read_depth}")
         logger.info(f"    - Method: {args.method}")
-        if args.analysis_mode == 'fixed':
-            logger.info(f"  Fixed markers: {args.fixed_markers}")
+        logger.info(f"  Pipeline: Unified longitudinal with marker selection at each timepoint")
         
         # Validate input files
         if not validate_input_files(args, logger):
@@ -103,23 +100,13 @@ def main():
         logger.info(f"Tissue mutations: {len(tissue_df)} mutations")
         logger.info(f"Longitudinal timepoints: {len(timepoint_data)} timepoints")
         
-        # Run analysis based on selected mode (simplified - only one mode at a time)
-        logger.info(f"=== Running {args.analysis_mode.title()} Analysis ===")
+        # Run unified longitudinal analysis
+        logger.info("=== Running Unified Longitudinal Analysis ===")
         
-        if args.analysis_mode == 'fixed':
-            results_summary = run_fixed_marker_analysis(
-                args, logger, tree_distribution_summary, tree_distribution_full,
-                gene_list, gene2idx, gene_name_list, timepoint_data, 
-                output_dir, gene_name2idx)
-        
-        elif args.analysis_mode == 'dynamic':
-            results_summary = run_dynamic_marker_analysis(
-                args, logger, tree_distribution_summary, tree_distribution_full,
-                gene_list, gene2idx, gene_name_list, timepoint_data, output_dir)
-        
-        else:
-            logger.error(f"Invalid analysis mode: {args.analysis_mode}")
-            sys.exit(1)
+        results_summary = run_unified_longitudinal_analysis(
+            args, logger, tree_distribution_summary, tree_distribution_full,
+            gene_list, gene2idx, gene_name_list, timepoint_data, 
+            output_dir, gene_name2idx)
         
         # Generate final report
         logger.info("=== Generating Final Report ===")

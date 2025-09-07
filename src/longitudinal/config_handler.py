@@ -32,7 +32,7 @@ def load_config(config_path: str) -> Dict:
             config = yaml.safe_load(f)
         
         # Validate required sections
-        required_sections = ['patient_id', 'analysis_mode', 'input_files', 'output']
+        required_sections = ['patient_id', 'input_files', 'output']
         for section in required_sections:
             if section not in config:
                 raise ValueError(f"Missing required configuration section: {section}")
@@ -46,8 +46,6 @@ def load_config(config_path: str) -> Dict:
         # Set defaults for optional sections
         if 'parameters' not in config:
             config['parameters'] = {}
-        if 'fixed_markers' not in config:
-            config['fixed_markers'] = []
         if 'filtering' not in config:
             config['filtering'] = {'timepoints': []}
         if 'visualization' not in config:
@@ -93,14 +91,11 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Run fixed marker analysis using YAML configuration
-    python longitudinal_main.py --config configs/cruk0044_fixed_markers.yaml
-    
-    # Run dynamic marker analysis using YAML configuration  
-    python longitudinal_main.py --config configs/cruk0044_dynamic.yaml
+    # Run unified longitudinal analysis using YAML configuration
+    python longitudinal_main.py --config configs/cruk0044_longitudinal.yaml
     
     # Run with debug mode enabled
-    python longitudinal_main.py --config configs/cruk0044_fixed_markers.yaml --debug
+    python longitudinal_main.py --config configs/cruk0044_longitudinal.yaml --debug
         """
     )
     
@@ -141,11 +136,6 @@ def config_to_args(config: Dict, cmd_args: argparse.Namespace) -> argparse.Names
     
     # Basic configuration
     args.patient_id = config['patient_id']
-    args.analysis_mode = config['analysis_mode']
-    
-    # Validate analysis mode (only 'dynamic' or 'fixed' allowed now)
-    if args.analysis_mode not in ['dynamic', 'fixed']:
-        raise ValueError(f"Invalid analysis mode: {args.analysis_mode}. Must be 'dynamic' or 'fixed'")
     
     # Input files
     args.aggregation_dir = config['input_files']['aggregation_dir']
@@ -166,8 +156,7 @@ def config_to_args(config: Dict, cmd_args: argparse.Namespace) -> argparse.Names
     args.focus_sample = params['focus_sample']
     args.track_clone_freq = params['track_clone_freq']
     
-    # Fixed markers (only used in fixed mode)
-    args.fixed_markers = config.get('fixed_markers', [])
+    # Note: Fixed markers no longer used in unified pipeline
     
     # Filtering
     timepoints_str = config['filtering'].get('timepoints', [])
@@ -209,19 +198,6 @@ def validate_input_files(args: argparse.Namespace, logger: logging.Logger) -> bo
         True if all validations pass, False otherwise
     """
     logger.info("Validating input files and parameters...")
-    
-    # Validate fixed marker requirements
-    if args.analysis_mode == 'fixed':
-        if not args.fixed_markers:
-            logger.error("Fixed markers must be specified when using fixed analysis mode")
-            logger.error("Add fixed_markers to YAML config, e.g., fixed_markers: ['TP53', 'KRAS', 'PIK3CA']")
-            return False
-        
-        if len(args.fixed_markers) < 1:
-            logger.error("At least one fixed marker must be specified")
-            return False
-        
-        logger.info(f"Fixed markers specified: {args.fixed_markers}")
     
     # Check aggregation directory and required files
     aggregation_dir = Path(args.aggregation_dir)
