@@ -15,6 +15,7 @@ import argparse
 import matplotlib.pyplot as plt
 import os
 import sys
+import json
 
 
 def parse_args():
@@ -193,20 +194,19 @@ def main():
 
     print(f"Tree distribution loaded: {len(tree_list)} trees, {len(node_list)} node sets")
 
-    # Save marker selection results to a text file
-    results_file = os.path.join(output_dir, f'{patient}_marker_selection_results.txt')
-    with open(results_file, 'w') as f:
-        f.write(f"Marker Selection Results for Patient {patient}\n")
-        f.write("=" * 50 + "\n")
-        f.write(f"Input (pre-filtered): {ssm_file_path}\n")
-        f.write(f"Mutations in analysis: {len(gene_list)}\n")
-        f.write(f"Read depth: {read_depth}\n\n")
-
-    # Tree-based marker selection using two optimization strategies
+    # Initialize results dictionary for JSON export
+    results_data = {
+        "patient_id": patient,
+        "input_file": ssm_file_path,
+        "mutations_count": len(gene_list),
+        "read_depth": read_depth
+    }
 
     # Tree-based selection with two optimization strategies
+    optimization_results = {}
+    
     for lam1, lam2 in [(1, 0), (0, 1)]:
-        print(f"Running Method 2: Tree-based selection (lam1={lam1}, lam2={lam2})...")
+        print(f"Running Tree-based selection (lam1={lam1}, lam2={lam2})...")
         selected_markers2_genename_ordered = []
         obj2_ordered = []
         
@@ -240,46 +240,72 @@ def main():
                         print(f"Error: No markers selected for n_markers={n_markers} (lam1={lam1}, lam2={lam2}). Breaking loop.")
                         break
 
-        # Save Method 2 results with descriptive headers
-        with open(results_file, 'a') as f:
-            if lam1 == 1 and lam2 == 0:
-                f.write(f"\nλ1=1, λ2=0 (Pure Fraction Optimization):\n")
-            elif lam1 == 0 and lam2 == 1:
-                f.write(f"\nλ1=0, λ2=1 (Pure Structure Optimization):\n")
-            else:
-                f.write(f"\nλ1={lam1}, λ2={lam2} (Mixed Optimization):\n")
-            f.write("-" * 40 + "\n")
-            for i, (marker, (obj_frac, obj_struct)) in enumerate(zip(selected_markers2_genename_ordered, obj2_ordered), 1):
-                f.write(f"{i}. {marker}: fraction={obj_frac}, structure={obj_struct}\n")
-            f.write("\n")
+        # Store results for JSON and plotting
+        strategy_key = "fraction_optimization" if lam1 == 1 and lam2 == 0 else "structure_optimization"
+        description = "Pure Fraction Optimization" if lam1 == 1 and lam2 == 0 else "Pure Structure Optimization"
+        
+        markers_list = []
+        for i, (marker, (obj_frac, obj_struct)) in enumerate(zip(selected_markers2_genename_ordered, obj2_ordered), 1):
+            markers_list.append({
+                "rank": i,
+                "gene": marker,
+                "fraction": obj_frac,
+                "structure": obj_struct
+            })
+        
+        optimization_results[strategy_key] = {
+            "lambda_values": {"lambda1": lam1, "lambda2": lam2},
+            "description": description,
+            "markers": markers_list,
+            "gene_order": selected_markers2_genename_ordered,
+            "fraction_values": [obj2_ordered[i][0] for i in range(len(obj2_ordered))],
+            "structure_values": [obj2_ordered[i][1] for i in range(len(obj2_ordered))]
+        }
 
-        obj2_frac_ordered = [obj2_ordered[i][0] for i in range(len(obj2_ordered))]
-        obj2_struct_ordered = [obj2_ordered[i][1] for i in range(len(obj2_ordered))]
-        position2 = list(range(len(obj2_ordered)))
+    # Add optimization results to main results dictionary
+    results_data.update(optimization_results)
 
-        # Plot fractions
-        plt.figure(figsize=(8, 5))
-        plt.plot(position2, obj2_frac_ordered, 'o-', color='tab:orange', label='trees-fractions')
-        plt.xticks(position2, selected_markers2_genename_ordered, rotation=30)
+    # Save JSON results
+    results_file = os.path.join(output_dir, f'{patient}_marker_selection_results.json')
+    with open(results_file, 'w') as f:
+        json.dump(results_data, f, indent=2)
+
+    # Create consolidated plots
+    for strategy_key, strategy_data in optimization_results.items():
+        gene_order = strategy_data["gene_order"]
+        fraction_values = strategy_data["fraction_values"]
+        structure_values = strategy_data["structure_values"]
+        position = list(range(len(gene_order)))
+        
+        # Create single plot with both fraction and structure lines
+        plt.figure(figsize=(10, 6))
+        plt.plot(position, fraction_values, 'o-', color='tab:orange', label='Fraction Values', linewidth=2)
+        plt.plot(position, structure_values, 'o-', color='tab:green', label='Structure Values', linewidth=2)
+        
+        plt.xticks(position, gene_order, rotation=30, ha='right')
         plt.legend()
-        plt.title(f'Patient {patient} - Tree Fractions (λ1={lam1}, λ2={lam2}, VAF Pre-filtered)')
+        plt.ylabel('Objective Values')
+        plt.xlabel('Markers')
+        
+        # Set title based on strategy
+        if strategy_key == "fraction_optimization":
+            plt.title(f'Patient {patient} - Fraction Optimization (λ1=1, λ2=0)')
+            plot_filename = f'{patient}_fraction_optimization_{read_depth}.png'
+        else:
+            plt.title(f'Patient {patient} - Structure Optimization (λ1=0, λ2=1)')
+            plot_filename = f'{patient}_structure_optimization_{read_depth}.png'
+        
         plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, f'{patient}_trees_fractions_{lam1}_{lam2}_{read_depth}.png'), format='png', dpi=300, bbox_inches='tight')
-        plt.close()
-
-        # Plot structures
-        plt.figure(figsize=(8, 5))
-        plt.plot(position2, obj2_struct_ordered, 'o-', color='tab:green', label='trees-structure')
-        plt.xticks(position2, selected_markers2_genename_ordered, rotation=30)
-        plt.legend()
-        plt.title(f'Patient {patient} - Tree Structures (λ1={lam1}, λ2={lam2}, VAF Pre-filtered)')
-        plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, f'{patient}_trees_structures_{lam1}_{lam2}_{read_depth}.png'), format='png', dpi=300, bbox_inches='tight')
+        plt.savefig(os.path.join(output_dir, plot_filename), format='png', dpi=300, bbox_inches='tight')
         plt.close()
 
     print(f"\nMarker selection completed successfully!")
-    print(f"Results saved to: {results_file}")
+    print(f"JSON results saved to: {results_file}")
     print(f"Plots saved to: {output_dir}")
+    print(f"Output files:")
+    print(f"  - {patient}_marker_selection_results.json")
+    print(f"  - {patient}_fraction_optimization_{read_depth}.png") 
+    print(f"  - {patient}_structure_optimization_{read_depth}.png")
 
 
 if __name__ == "__main__":
