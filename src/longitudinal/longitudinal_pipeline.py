@@ -102,25 +102,12 @@ def run_unified_longitudinal_analysis(args, logger: logging.Logger,
         logger.info(f"ddPCR data shape: {current_ddpcr_data.shape}")
         
         try:
-            # Step 1: Get user-provided markers for this timepoint and validate they exist
-            logger.info("Step 1: Validating user-provided markers for this timepoint")
+            # Step 1: Use markers available in ddPCR CSV file for this timepoint
+            logger.info("Step 1: Using markers from ddPCR CSV file for this timepoint")
             
-            # Get available markers from ddPCR data for this timepoint
-            available_markers = set(current_ddpcr_data.index.tolist())
-            logger.info(f"Available markers in ddPCR data: {sorted(available_markers)}")
-            
-            # For now, use all available markers (user can later specify specific ones)
-            # TODO: Allow user to specify markers per timepoint in config
-            selected_markers = sorted(list(available_markers))
-            
-            # Validate that all selected markers exist in the data
-            missing_markers = set(selected_markers) - available_markers
-            if missing_markers:
-                logger.error(f"Selected markers not found in ddPCR data: {missing_markers}")
-                logger.error(f"Available markers: {sorted(available_markers)}")
-                raise ValueError(f"Missing markers in ddPCR data: {missing_markers}")
-            
-            logger.info(f"Using markers for tree update: {selected_markers}")
+            # Get all available markers from ddPCR data
+            selected_markers = sorted(current_ddpcr_data.index.tolist())
+            logger.info(f"Found {len(selected_markers)} markers in ddPCR data: {selected_markers}")
             
             # Step 2: Process ddPCR measurements for selected markers
             logger.info("Step 2: Processing ddPCR measurements for selected markers")
