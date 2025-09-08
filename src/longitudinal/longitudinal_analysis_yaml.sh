@@ -10,13 +10,13 @@ if [ "$#" -lt 1 ] || [ "$#" -gt 3 ]; then
     echo "Usage: sbatch $0 <config_yaml_file> [additional_flags] [slurm_log_suffix]"
     echo ""
     echo "Examples:"
-    echo "  sbatch $0 configs/cruk0044_fixed.yaml"
-    echo "  sbatch $0 configs/cruk0044_dynamic.yaml '--debug'"
-    echo "  sbatch $0 configs/cruk0044_fixed.yaml '--debug --no-plots' 'test_run'"
+    echo "  sbatch $0 configs/cruk0044_longitudinal.yaml"
+    echo "  sbatch $0 configs/cruk0044_longitudinal.yaml '--debug'"
+    echo "  sbatch $0 configs/cruk0044_longitudinal.yaml '--debug --no-plots' 'test_run'"
     echo ""
     echo "Configuration files should be in YAML format with all required parameters."
     echo "The code directory is now specified in the YAML config file."
-    echo "Supported analysis modes: 'dynamic', 'fixed'"
+    echo "Uses unified longitudinal pipeline (v3.0) - handles all marker selection approaches"
     exit 1
 fi
 
@@ -35,7 +35,6 @@ fi
 PATIENT_ID=$(grep "^patient_id:" "$CONFIG_FILE" | sed 's/patient_id: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
 OUTPUT_BASE=$(grep "base_dir:" "$CONFIG_FILE" | sed 's/.*base_dir: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
 CODE_DIR=$(grep "code_dir:" "$CONFIG_FILE" | sed 's/.*code_dir: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
-ANALYSIS_MODE=$(grep "^analysis_mode:" "$CONFIG_FILE" | sed 's/analysis_mode: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
 
 # Expand tilde paths
 OUTPUT_BASE="${OUTPUT_BASE/#\~/$HOME}"
@@ -61,16 +60,11 @@ if [ -z "$CODE_DIR" ]; then
     exit 1
 fi
 
-# Validate analysis mode
-if [ "$ANALYSIS_MODE" != "dynamic" ] && [ "$ANALYSIS_MODE" != "fixed" ]; then
-    echo "Error: Invalid analysis mode '$ANALYSIS_MODE'. Must be 'dynamic' or 'fixed'."
-    exit 1
-fi
+# No analysis mode validation needed - unified pipeline handles both approaches
 
-echo "--- Longitudinal YAML Analysis Script v2.0 Start ---"
+echo "--- Longitudinal YAML Analysis Script v3.0 Start ---"
 echo "Configuration file: $CONFIG_FILE"
 echo "Patient ID: $PATIENT_ID"
-echo "Analysis mode: $ANALYSIS_MODE"
 echo "Code directory: $CODE_DIR (from config)"
 echo "Output base directory: $OUTPUT_BASE"
 echo "Additional flags: $ADDITIONAL_FLAGS"
@@ -89,11 +83,10 @@ echo "Gurobi module loaded successfully."
 LOG_DIR="${OUTPUT_BASE}/logs"
 mkdir -p "${LOG_DIR}"
 
-echo "--- Longitudinal YAML Analysis Script v2.0 Execution ---"
+echo "--- Unified Longitudinal Analysis Script v3.0 Execution ---"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Configuration file: $CONFIG_FILE"
 echo "Patient ID: $PATIENT_ID"
-echo "Analysis mode: $ANALYSIS_MODE"
 echo "Code directory: $CODE_DIR"
 echo "Output base directory: $OUTPUT_BASE"
 echo "Additional flags: $ADDITIONAL_FLAGS"
@@ -129,11 +122,11 @@ echo "DEBUG: Script exists: $(ls -la "$LONGITUDINAL_SCRIPT_PATH" 2>/dev/null || 
 
 if [ ! -f "$LONGITUDINAL_SCRIPT_PATH" ]; then
     echo "Error: Longitudinal analysis Python script not found at $LONGITUDINAL_SCRIPT_PATH"
-    echo "Note: This script now uses longitudinal_main.py (v2.0 modular architecture)"
+    echo "Note: This script now uses longitudinal_main.py (v3.0 unified architecture)"
     exit 1
 fi
 
-echo "Running longitudinal analysis with YAML configuration (v2.0)..."
+echo "Running unified longitudinal analysis with YAML configuration (v3.0)..."
 echo "Command: python $LONGITUDINAL_SCRIPT_PATH --config $CONFIG_FILE $ADDITIONAL_FLAGS"
 
 # Execute the Python script with YAML configuration
@@ -141,23 +134,23 @@ conda run -n mase_phi_hpc python "$LONGITUDINAL_SCRIPT_PATH" --config "$CONFIG_F
 
 SCRIPT_EXIT_CODE=$?
 if [ $SCRIPT_EXIT_CODE -eq 0 ]; then
-    echo "Longitudinal analysis completed successfully for patient ${PATIENT_ID} (${ANALYSIS_MODE} mode)."
+    echo "Unified longitudinal analysis completed successfully for patient ${PATIENT_ID}."
 else
-    echo "Error: Longitudinal analysis failed for patient ${PATIENT_ID} with exit code $SCRIPT_EXIT_CODE."
+    echo "Error: Unified longitudinal analysis failed for patient ${PATIENT_ID} with exit code $SCRIPT_EXIT_CODE."
     exit $SCRIPT_EXIT_CODE 
 fi
 
 # --- Output Summary ---
-echo "=== LONGITUDINAL YAML ANALYSIS COMPLETED (v2.0) ==="
+echo "=== UNIFIED LONGITUDINAL ANALYSIS COMPLETED (v3.0) ==="
 echo "Patient: ${PATIENT_ID}"
-echo "Analysis mode: ${ANALYSIS_MODE}"
 echo "Configuration: ${CONFIG_FILE}"
 echo "Results directory: ${OUTPUT_BASE}"
 echo "Logs directory: ${LOG_DIR}"
 echo ""
 echo "Key output files will be in subdirectories of: ${OUTPUT_BASE}"
-echo "  - ${ANALYSIS_MODE}_marker_analysis/: Analysis results"
+echo "  - longitudinal_pipeline/: Analysis results"
 echo "  - logs/: Detailed execution logs"
+echo "  - Comprehensive JSON tracking in results directory"
 echo ""
 echo "Primary SLURM job log is in the submission directory (slurm-$SLURM_JOB_ID.out)."
-echo "--- Longitudinal YAML Analysis Script v2.0 End ---" 
+echo "--- Unified Longitudinal Analysis Script v3.0 End ---" 

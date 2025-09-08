@@ -156,8 +156,6 @@ def config_to_args(config: Dict, cmd_args: argparse.Namespace) -> argparse.Names
     args.focus_sample = params['focus_sample']
     args.track_clone_freq = params['track_clone_freq']
     
-    # Note: Fixed markers no longer used in unified pipeline
-    
     # Filtering
     timepoints_str = config['filtering'].get('timepoints', [])
     args.timepoints = ','.join(timepoints_str) if timepoints_str else None

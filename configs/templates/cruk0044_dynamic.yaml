@@ -1,10 +1,8 @@
-# CRUK0044 Dynamic Marker Analysis Configuration
-# Longitudinal cancer evolution analysis using optimal marker selection at each timepoint
+# CRUK0044 Longitudinal Analysis Configuration (Structure Optimization)
+# Unified longitudinal cancer evolution analysis with structure-focused marker selection
 
-# Patient and analysis identification
+# Patient identification  
 patient_id: "CRUK0044"
-# Dynamic marker selection
-analysis_mode: "dynamic"
 
 # Input file paths - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
 input_files:
@@ -17,24 +15,21 @@ input_files:
 # Output configuration
 output:
   base_dir: "/home/ssabata/patient_data/cruk0044/longitudinal/"
-  create_subdirs: true
 
 # Analysis parameters
 parameters:
-  # Number of markers to select at each timepoint
+  # Number of markers for optimization (used for future marker selection)
   n_markers: 5
   # Expected read depth for ddPCR analysis 
   read_depth: 90000
   method: "phylowgs"
-  # Weight for fraction-based objective (0.0 = ignore fractions)
+  # Weight for fraction-based objective (0.0 = focus on structure)
   lambda1: 0.0
   # Weight for structure-based objective (1.0 = focus on tree structure)
   lambda2: 1.0
   focus_sample: 0
-  track_clone_freq: true  # Enable clone frequency tracking and visualization
-
-# Fixed markers - not used in dynamic mode but required for schema
-fixed_markers: []
+  # Enable clone frequency tracking and comprehensive JSON output
+  track_clone_freq: true
 
 # Optional filtering (empty = analyze all timepoints)
 filtering:
@@ -54,8 +49,7 @@ validation:
 
 # HPC/SLURM configuration
 hpc:
-  job_name: "cruk0044_dynamic_longitudinal"
+  job_name: "cruk0044_longitudinal_structure"
   partition: "pool1"
   cpus_per_task: 4
-  memory: "16G"
-  conda_env: "markers_env" 
+  memory: "16G" 
