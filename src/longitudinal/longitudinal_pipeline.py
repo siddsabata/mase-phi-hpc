@@ -5,8 +5,7 @@ Unified longitudinal cancer evolution analysis pipeline.
 This module implements the corrected longitudinal analysis pipeline that:
 1. Updates tree frequencies using Bayesian inference with liquid biopsy data
 2. Recalculates clonal frequencies using proper vaf_frac averaging
-3. Runs marker selection at each timepoint using both optimization objectives
-4. Tracks complete evolution in comprehensive JSON format
+3. Tracks complete evolution in comprehensive JSON format
 
 Authors: TracerX Pipeline Development Team
 """
@@ -21,13 +20,9 @@ from typing import Dict, List, Tuple, Any
 # Import our corrected modules
 from tree_updater import (
     process_ddpcr_measurements, 
-    update_tree_distribution, 
-    prepare_tree_components_for_marker_selection
+    update_tree_distribution
 )
-from longitudinal_tracker import LongitudinalTracker, create_marker_selection_results_dict
-
-# Import marker selection functions
-from optimize_fraction import select_markers_tree_gp
+from longitudinal_tracker import LongitudinalTracker
 
 logger = logging.getLogger(__name__)
 
@@ -35,28 +30,21 @@ logger = logging.getLogger(__name__)
 def run_unified_longitudinal_analysis(args, logger: logging.Logger, 
                                      tree_distribution_summary: Dict, 
                                      tree_distribution_full: Dict,
-                                     gene_list: List[str], gene2idx: Dict, 
-                                     gene_name_list: List[str], 
                                      timepoint_data: Dict[str, pd.DataFrame],
-                                     output_dir: Path, gene_name2idx: Dict, 
-                                     mutation_id_to_gene: Dict) -> Dict:
+                                     output_dir: Path) -> Dict:
     """
     Run unified longitudinal analysis pipeline with corrected updating algorithm.
     
-    This replaces the separate fixed_analysis.py and dynamic_analysis.py with a single
-    unified approach that runs marker selection at each timepoint.
+    This pipeline focuses on tree updating and clonal frequency tracking over time
+    without marker selection functionality.
     
     Args:
         args: Configuration arguments
         logger: Logger instance
         tree_distribution_summary: Tree distribution summary from aggregation
         tree_distribution_full: Full tree distribution from aggregation
-        gene_list: List of gene IDs
-        gene2idx: Mapping from gene IDs to indices
-        gene_name_list: List of human-readable gene names
         timepoint_data: Dictionary mapping timepoint names to ddPCR data
         output_dir: Output directory for results
-        gene_name2idx: Mapping from gene names to indices
         
     Returns:
         Dictionary containing comprehensive results summary
@@ -122,79 +110,30 @@ def run_unified_longitudinal_analysis(args, logger: logging.Logger,
             updated_tree_summary, update_tracking_data = update_tree_distribution(
                 current_tree_summary, ddpcr_marker_counts, read_depth_list, marker_idx2gene, logger)
             
-            # Step 4: Run marker selection on the UPDATED trees (for potential future use)
-            logger.info("Step 4: Running marker selection on updated trees for future timepoints")
-            
-            # Get clonal frequencies from the update tracking data (corrected algorithm)
-            clonal_freq_list = update_tracking_data['clonal_freq_list']
-            
-            # Prepare tree components for marker selection using updated trees
-            tree_list, node_list, tree_freq_list, clonal_freq_list_processed = \
-                prepare_tree_components_for_marker_selection(
-                    updated_tree_summary, clonal_freq_list, logger)
-            
-            # Run marker selection with fraction optimization (λ1=1, λ2=0)
-            logger.info("Running fraction optimization (λ1=1, λ2=0) on updated trees")
-            fraction_markers, fraction_obj_frac, fraction_obj_struct = select_markers_tree_gp(
-                gene_list, args.n_markers, tree_list, node_list, clonal_freq_list_processed,
-                gene2idx, tree_freq_list, read_depth=args.read_depth, 
-                lam1=1, lam2=0, focus_sample_idx=0, mutation_id_to_gene=mutation_id_to_gene)
-            
-            # Run marker selection with structure optimization (λ1=0, λ2=1)
-            logger.info("Running structure optimization (λ1=0, λ2=1) on updated trees")  
-            structure_markers, structure_obj_frac, structure_obj_struct = select_markers_tree_gp(
-                gene_list, args.n_markers, tree_list, node_list, clonal_freq_list_processed,
-                gene2idx, tree_freq_list, read_depth=args.read_depth,
-                lam1=0, lam2=1, focus_sample_idx=0, mutation_id_to_gene=mutation_id_to_gene)
-            
-            # Convert marker IDs to gene names
-            fraction_gene_names = [gene_name_list[int(marker[1:])] for marker in fraction_markers]
-            structure_gene_names = [gene_name_list[int(marker[1:])] for marker in structure_markers]
-            
-            logger.info(f"Fraction optimization selected: {fraction_gene_names}")
-            logger.info(f"Structure optimization selected: {structure_gene_names}")
-            
-            # Step 5: Prepare marker selection results for tracking
-            marker_selection_results = create_marker_selection_results_dict(
-                {
-                    'selected_markers': fraction_markers,
-                    'obj_frac': fraction_obj_frac,
-                    'obj_struct': fraction_obj_struct
-                },
-                {
-                    'selected_markers': structure_markers,
-                    'obj_frac': structure_obj_frac,
-                    'obj_struct': structure_obj_struct
-                },
-                "post_update_selection"  # Indicates this selection happened after tree update
-            )
-            
-            # Step 6: Add comprehensive tracking data
+            # Step 4: Add comprehensive tracking data
             tracker.add_timepoint_update(
                 timepoint=timepoint,
                 order_idx=order_idx,
-                marker_selection_results=marker_selection_results,
                 ddpcr_measurements=ddpcr_measurements,
                 update_tracking_data=update_tracking_data,
                 selected_markers=selected_markers  # The markers used for THIS timepoint's tree update
             )
             
-            # Step 7: Save updated tree distribution for next iteration
+            # Step 5: Save updated tree distribution for next iteration
             updated_tree_file = pipeline_dir / f'tree_distribution_updated_timepoint_{order_idx}.pkl'
             with open(updated_tree_file, 'wb') as f:
                 pickle.dump(updated_tree_summary, f)
             
             logger.info(f"Saved updated tree distribution: {updated_tree_file}")
             
-            # Step 8: Update clonal frequency list for next iteration
-            # (Already obtained from update_tracking_data in Step 4)
+            # Step 6: Update clonal frequency list for next iteration
+            # (Already obtained from update_tracking_data in Step 3)
             
             # Store results for this timepoint
             timepoint_result = {
                 'timepoint': timepoint,
                 'order_idx': order_idx,
                 'selected_markers': selected_markers,
-                'marker_selection_results': marker_selection_results,
                 'tree_update_summary': {
                     'entropy_change': update_tracking_data['entropy_change'],
                     'significant_changes': len([i for i, (old, new) in enumerate(

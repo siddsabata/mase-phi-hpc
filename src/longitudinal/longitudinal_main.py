@@ -105,8 +105,7 @@ def main():
         
         results_summary = run_unified_longitudinal_analysis(
             args, logger, tree_distribution_summary, tree_distribution_full,
-            gene_list, gene2idx, gene_name_list, timepoint_data, 
-            output_dir, gene_name2idx, mutation_id_to_gene)
+            timepoint_data, output_dir)
         
         # Generate final report
         logger.info("=== Generating Final Report ===")

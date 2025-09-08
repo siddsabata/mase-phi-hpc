@@ -58,20 +58,20 @@ class LongitudinalTracker:
         logger.info(f"Initialized longitudinal tracker for patient {patient_id}")
     
     def add_timepoint_update(self, timepoint: str, order_idx: int, 
-                           marker_selection_results: Dict,
                            ddpcr_measurements: List[Dict],
                            update_tracking_data: Dict,
-                           selected_markers: List[str]) -> None:
+                           selected_markers: List[str],
+                           marker_selection_results: Optional[Dict] = None) -> None:
         """
         Add comprehensive tracking data for a single timepoint update.
         
         Args:
             timepoint: Timepoint identifier (e.g., "2023-01-15")
             order_idx: Sequential index of this timepoint
-            marker_selection_results: Results from both optimization objectives
             ddpcr_measurements: ddPCR measurement data
             update_tracking_data: Tree frequency and clonal frequency update data
             selected_markers: Final selected markers used for this update
+            marker_selection_results: Optional results from marker selection optimization
         """
         
         # Calculate clonal frequency changes
@@ -82,7 +82,6 @@ class LongitudinalTracker:
             'timepoint': timepoint,
             'order_idx': order_idx,
             'timestamp': datetime.now().isoformat(),
-            'marker_selection': marker_selection_results,
             'selected_markers': selected_markers,
             'ddpcr_measurements': ddpcr_measurements,
             'tree_update': {
@@ -97,6 +96,10 @@ class LongitudinalTracker:
                 'after': clonal_freq_after
             }
         }
+        
+        # Add marker selection results if provided
+        if marker_selection_results is not None:
+            timepoint_data['marker_selection'] = marker_selection_results
         
         self.tracking_data['timepoints'].append(timepoint_data)
         
