@@ -136,6 +136,7 @@ def config_to_args(config: Dict, cmd_args: argparse.Namespace) -> argparse.Names
     
     # Basic configuration
     args.patient_id = config['patient_id']
+    args.analysis_mode = config.get('analysis_mode', 'unified')
     
     # Input files
     args.aggregation_dir = config['input_files']['aggregation_dir']
