@@ -143,8 +143,10 @@ def config_to_args(config: Dict, cmd_args: argparse.Namespace) -> argparse.Names
     args.longitudinal_data = config['input_files']['longitudinal_data']
     args.code_dir = config['input_files']['code_dir']
     
-    # Output configuration
-    args.output_dir = config['output']['base_dir']
+    # Output configuration - create {base_dir}/{patient_id}/longitudinal/ structure
+    base_dir = config['output']['base_dir']
+    patient_id = config['patient_id']
+    args.output_dir = f"{base_dir}/{patient_id}/longitudinal"
     
     # Analysis parameters
     params = config['parameters']

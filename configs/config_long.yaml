@@ -2,61 +2,26 @@
 # Contains only parameters actually used by the pipeline
 # Version: 3.0 (Unified Pipeline)
 
-# =============================================================================
-# PATIENT IDENTIFICATION
-# =============================================================================
-patient_id: "cruk0044"  # REQUIRED: Update with actual patient ID (e.g., "CRUK0044")
+patient_id: "cruk0044"  
 
-# =============================================================================
-# INPUT FILES - UPDATE ALL PATHS FOR YOUR ENVIRONMENT  
-# =============================================================================
 input_files:
-  # Directory containing aggregation results from pipeline stages 1-4
-  # Must contain: phylowgs_bootstrap_summary.pkl, phylowgs_bootstrap_aggregation.pkl
   aggregation_dir: "/home/ssabata/masephi-test/cruk0044/cruk0044/initial/aggregation_results"
   
-  # Pre-filtered SSM file from bootstrap stage (contains VAF-filtered mutations)
-  # Typically: /path/to/patient/initial/ssm_filtered.txt
   ssm_file: "/home/ssabata/cruk0044_data/ssm.txt"
   
-  # Longitudinal ddPCR data in CSV format
-  # Index: Gene names matching tissue data, Columns: MutDOR/DOR pairs per timepoint
   longitudinal_data: "/home/ssabata/cruk0044_data/cruk0044_liquid.csv"
   
-  # Base directory of the mase-phi-hpc repository (used by SLURM script for path resolution)
   code_dir: "/home/ssabata/mase-phi-hpc/"
 
-# =============================================================================
-# OUTPUT DIRECTORY
-# =============================================================================
 output:
-  # Base directory where all results will be written
-  # Pipeline creates subdirectories: longitudinal_pipeline/, logs/, etc.
-  base_dir: "/home/ssabata/masephi-test/cruk0044/"  # Patient base directoryase_dir: "/path/to/patient/longitudinal/"
+  base_dir: "/home/ssabata/masephi-test/cruk0044/"  
 
-# =============================================================================
-# ANALYSIS PARAMETERS
-# =============================================================================
 parameters:
-  # Number of markers to select during optimization at each timepoint
-  # Used in select_markers_tree_gp() calls - typical range: 2-10
   n_markers: 5
-  
-  # Read depth for marker selection optimization 
-  # Should match expected ddPCR read depths - typical range: 50000-150000
-  read_depth: 90000
-  
-  # Phylogenetic method used in stages 1-4 (used to construct aggregation filenames)
-  # Must be "phylowgs" to match: {method}_bootstrap_summary.pkl, {method}_bootstrap_aggregation.pkl  
+  read_depth: 1500
   method: "phylowgs"
-  
-  # Enable comprehensive JSON tracking of longitudinal tree evolution
-  # Set to true for full monitoring, false for minimal output
   track_clone_freq: true
 
-# =============================================================================
-# HPC/SLURM CONFIGURATION (for sbatch submission)
-# =============================================================================
 hpc:
   job_name: "longitudinal_analysis"
   partition: "pool1" 
