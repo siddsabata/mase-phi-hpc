@@ -26,8 +26,8 @@ from tree_updater import (
 )
 from longitudinal_tracker import LongitudinalTracker, create_marker_selection_results_dict
 
-# Import marker selection functions (assuming they exist in optimize.py)
-from optimize import select_markers_tree_gp
+# Import marker selection functions
+from optimize_fraction import select_markers_tree_gp
 
 logger = logging.getLogger(__name__)
 
