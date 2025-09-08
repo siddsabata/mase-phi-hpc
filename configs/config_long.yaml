@@ -6,11 +6,8 @@ patient_id: "cruk0044"
 
 input_files:
   aggregation_dir: "/home/ssabata/masephi-test/cruk0044/cruk0044/initial/aggregation_results"
-  
   ssm_file: "/home/ssabata/cruk0044_data/ssm.txt"
-  
   longitudinal_data: "/home/ssabata/cruk0044_data/cruk0044_liquid.csv"
-  
   code_dir: "/home/ssabata/mase-phi-hpc/"
 
 output:
@@ -19,11 +16,3 @@ output:
 parameters:
   n_markers: 5
   read_depth: 1500
-  method: "phylowgs"
-  track_clone_freq: true
-
-hpc:
-  job_name: "longitudinal_analysis"
-  partition: "pool1" 
-  cpus_per_task: 2
-  memory: "16G"
