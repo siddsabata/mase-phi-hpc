@@ -1,7 +1,3 @@
-# Minimal Unified Longitudinal Analysis Configuration
-# Contains only parameters actually used by the pipeline
-# Version: 3.0 (Unified Pipeline)
-
 patient_id: "cruk0044"  
 
 input_files:

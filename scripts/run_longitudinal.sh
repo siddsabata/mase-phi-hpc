@@ -8,4 +8,4 @@
 #SBATCH --partition=pool1
 
 # Run longitudinal analysis
-conda run -n mase_phi_hpc python ../src/longitudinal/longitudinal_main.py --config "$1"
+conda run -n mase_phi_hpc python /home/ssabata/mase-phi-hpc/src/longitudinal/longitudinal_main.py --config "$1"
