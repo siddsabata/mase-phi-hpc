@@ -88,7 +88,7 @@ def main():
         
         # Load tissue data from SSM file
         ssm_file = Path(args.ssm_file)
-        tissue_df, gene2idx, gene_name_list, gene_list, gene_name2idx = load_tissue_data_from_ssm(ssm_file, logger)
+        tissue_df, gene2idx, gene_name_list, gene_list, gene_name2idx, mutation_id_to_gene = load_tissue_data_from_ssm(ssm_file, logger)
         
         # Load longitudinal data from CSV file
         longitudinal_file = Path(args.longitudinal_data)
@@ -106,7 +106,7 @@ def main():
         results_summary = run_unified_longitudinal_analysis(
             args, logger, tree_distribution_summary, tree_distribution_full,
             gene_list, gene2idx, gene_name_list, timepoint_data, 
-            output_dir, gene_name2idx)
+            output_dir, gene_name2idx, mutation_id_to_gene)
         
         # Generate final report
         logger.info("=== Generating Final Report ===")

@@ -38,7 +38,8 @@ def run_unified_longitudinal_analysis(args, logger: logging.Logger,
                                      gene_list: List[str], gene2idx: Dict, 
                                      gene_name_list: List[str], 
                                      timepoint_data: Dict[str, pd.DataFrame],
-                                     output_dir: Path, gene_name2idx: Dict) -> Dict:
+                                     output_dir: Path, gene_name2idx: Dict, 
+                                     mutation_id_to_gene: Dict) -> Dict:
     """
     Run unified longitudinal analysis pipeline with corrected updating algorithm.
     
@@ -137,14 +138,14 @@ def run_unified_longitudinal_analysis(args, logger: logging.Logger,
             fraction_markers, fraction_obj_frac, fraction_obj_struct = select_markers_tree_gp(
                 gene_list, args.n_markers, tree_list, node_list, clonal_freq_list_processed,
                 gene2idx, tree_freq_list, read_depth=args.read_depth, 
-                lam1=1, lam2=0, focus_sample_idx=0)
+                lam1=1, lam2=0, focus_sample_idx=0, mutation_id_to_gene=mutation_id_to_gene)
             
             # Run marker selection with structure optimization (λ1=0, λ2=1)
             logger.info("Running structure optimization (λ1=0, λ2=1) on updated trees")  
             structure_markers, structure_obj_frac, structure_obj_struct = select_markers_tree_gp(
                 gene_list, args.n_markers, tree_list, node_list, clonal_freq_list_processed,
                 gene2idx, tree_freq_list, read_depth=args.read_depth,
-                lam1=0, lam2=1, focus_sample_idx=0)
+                lam1=0, lam2=1, focus_sample_idx=0, mutation_id_to_gene=mutation_id_to_gene)
             
             # Convert marker IDs to gene names
             fraction_gene_names = [gene_name_list[int(marker[1:])] for marker in fraction_markers]

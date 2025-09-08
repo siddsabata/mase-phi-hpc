@@ -46,7 +46,7 @@ def load_tree_distributions(aggregation_dir: Path, method: str, logger: logging.
     return tree_distribution_summary, tree_distribution_full
 
 
-def load_tissue_data_from_ssm(ssm_file: Path, logger: logging.Logger) -> Tuple[pd.DataFrame, Dict, List, List, Dict]:
+def load_tissue_data_from_ssm(ssm_file: Path, logger: logging.Logger) -> Tuple[pd.DataFrame, Dict, List, List, Dict, Dict]:
     """
     Load and process tissue mutation data from SSM file format.
     
@@ -110,11 +110,16 @@ def load_tissue_data_from_ssm(ssm_file: Path, logger: logging.Logger) -> Tuple[p
     gene2idx = {f's{idx}': idx for idx in range(len(gene_name_list))}
     gene_name2idx = {gene_name: idx for idx, gene_name in enumerate(gene_name_list)}
     
+    # Create translation mappings between mutation IDs and gene names
+    mutation_id_to_gene = {f's{idx}': gene_name for idx, gene_name in enumerate(gene_name_list)}
+    gene_to_mutation_id = {gene_name: f's{idx}' for idx, gene_name in enumerate(gene_name_list)}
+    
     logger.info(f"Created gene list: {len(gene_list)} genes in 's0', 's1'... format")
     logger.info(f"Processed gene names: {len(gene_name_list)} names with duplicate handling")
     logger.info(f"Created dual mappings: gene2idx for optimization, gene_name2idx for validation")
+    logger.info(f"Created translation mappings: mutation_id_to_gene and gene_to_mutation_id")
     
-    return tissue_df, gene2idx, gene_name_list, gene_list, gene_name2idx
+    return tissue_df, gene2idx, gene_name_list, gene_list, gene_name2idx, mutation_id_to_gene
 
 
 def load_longitudinal_data_from_csv(csv_file: Path, logger: logging.Logger) -> Dict[str, pd.DataFrame]:

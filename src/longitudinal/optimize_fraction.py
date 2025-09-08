@@ -21,18 +21,31 @@ def create_sum_same_clone(tree_list, node_list, gene2idx, tree_freq_list=None):
     return sam_clo_matrix_sum
 
 
-def create_gene_fraction_array(tree, node_dict, clonal_freq, gene2idx, focus_sample_idx=0):
+def create_gene_fraction_array(tree, node_dict, clonal_freq, gene2idx, focus_sample_idx=0, mutation_id_to_gene=None):
     gene_fraction_array = np.zeros((len(gene2idx.keys())))
     root = root_searching(tree)
     for node, muts_list in node_dict.items():
         if node != root:
-            muts_idx = [gene2idx[mut] for mut in muts_list]
+            # Debug: print the actual mutations and available keys
+            print(f"DEBUG: muts_list = {muts_list}")
+            print(f"DEBUG: gene2idx keys = {list(gene2idx.keys())[:5]}")  # Show first 5 keys
+            try:
+                muts_idx = [gene2idx[mut] for mut in muts_list]
+            except KeyError as e:
+                print(f"DEBUG: KeyError - {e} not found in gene2idx")
+                # If translation mapping provided, try using it
+                if mutation_id_to_gene:
+                    print(f"DEBUG: Attempting translation with mutation_id_to_gene")
+                    print(f"DEBUG: mutation_id_to_gene sample = {dict(list(mutation_id_to_gene.items())[:5])}")
+                    muts_idx = [gene2idx[mut] if mut in gene2idx else gene2idx[mutation_id_to_gene.get(mut, mut)] for mut in muts_list]
+                else:
+                    raise
             print(clonal_freq[node][0][focus_sample_idx])
             gene_fraction_array[np.array(muts_idx)] = clonal_freq[node][0][focus_sample_idx]
     return gene_fraction_array
 
 
-def create_concat_gene_fraction(tree_list, node_list, clonal_freq_list, gene2idx, tree_freq_list=None,focus_sample_idx=0):
+def create_concat_gene_fraction(tree_list, node_list, clonal_freq_list, gene2idx, tree_freq_list=None,focus_sample_idx=0, mutation_id_to_gene=None):
     num_trees = len(tree_list)
     num_genes = len(gene2idx.keys())
     if tree_freq_list is None:
@@ -43,7 +56,7 @@ def create_concat_gene_fraction(tree_list, node_list, clonal_freq_list, gene2idx
         tree = tree_list[i]
         node_dict = node_list[i]
         clonal_freq = clonal_freq_list[i]
-        gene_fraction_array = create_gene_fraction_array(tree, node_dict, clonal_freq, gene2idx, focus_sample_idx)
+        gene_fraction_array = create_gene_fraction_array(tree, node_dict, clonal_freq, gene2idx, focus_sample_idx, mutation_id_to_gene)
         gene_fraction_matrix[i] = gene_fraction_array
     return gene_fraction_matrix
 
@@ -52,7 +65,7 @@ def create_gene_variance_matrix(gene_fraction_matrix, read_depth=10000):
     return read_depth * gene_fraction_matrix * (1-gene_fraction_matrix)
 
 
-def create_concat_relation_matrix(tree_list, node_list, gene2idx, tree_freq_list=None):
+def create_concat_relation_matrix(tree_list, node_list, gene2idx, tree_freq_list=None, mutation_id_to_gene=None):
     num_tree = len(tree_list)
     num_gene = len(gene2idx.keys())
     if tree_freq_list is None:
@@ -119,9 +132,9 @@ def optimize_tree_distribution(F, R,  n_genes, n_markers, read_depth, lam1, lam2
 
 
 def select_markers_tree_gp(gene_list, n_markers, tree_list, node_list, clonal_freq_list, gene2idx, tree_freq_list,
-                           read_depth=10000, lam1=0.001, lam2=1,focus_sample_idx=0, subset_list=None):
-    F = create_concat_gene_fraction(tree_list, node_list, clonal_freq_list, gene2idx, tree_freq_list, focus_sample_idx)
-    R = create_concat_relation_matrix(tree_list, node_list, gene2idx)
+                           read_depth=10000, lam1=0.001, lam2=1,focus_sample_idx=0, subset_list=None, mutation_id_to_gene=None):
+    F = create_concat_gene_fraction(tree_list, node_list, clonal_freq_list, gene2idx, tree_freq_list, focus_sample_idx, mutation_id_to_gene)
+    R = create_concat_relation_matrix(tree_list, node_list, gene2idx, tree_freq_list, mutation_id_to_gene)
     n_genes = len(gene_list)
     best_obj_frac, best_obj_struct, best_z = optimize_tree_distribution(F, R, n_genes, n_markers, read_depth, lam1, lam2, tree_freq_list, subset_list)
     print(best_obj_frac, best_obj_struct, best_z)
