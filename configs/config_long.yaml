@@ -2,7 +2,7 @@ patient_id: "cruk0044"
 
 input_files:
   aggregation_dir: "/home/ssabata/masephi-test/cruk0044/cruk0044/initial/aggregation_results"
-  ssm_file: "/home/ssabata/cruk0044_data/ssm.txt"
+  ssm_file: "/home/ssabata//masephi-test/cruk0044/cruk0044/initial/ssm_filtered.txt"
   longitudinal_data: "/home/ssabata/cruk0044_data/cruk0044_liquid.csv"
   code_dir: "/home/ssabata/mase-phi-hpc/"
 
