@@ -24,7 +24,7 @@ input_files:
   longitudinal_data: "/home/ssabata/cruk0044_data/cruk0044_liquid.csv"
   
   # Base directory of the mase-phi-hpc repository (used by SLURM script for path resolution)
-  code_dir: "/home/ssabata/mase-phi-hpc/"  
+  code_dir: "/home/ssabata/mase-phi-hpc/"
 
 # =============================================================================
 # OUTPUT DIRECTORY

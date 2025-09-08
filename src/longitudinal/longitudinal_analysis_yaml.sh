@@ -42,15 +42,15 @@ echo "Additional flags: $ADDITIONAL_FLAGS"
 echo "Parsing YAML configuration..."
 
 # Extract basic parameters
-PATIENT_ID=$(grep "^patient_id:" "$CONFIG_FILE" | sed 's/patient_id: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
-OUTPUT_BASE=$(grep "base_dir:" "$CONFIG_FILE" | sed 's/.*base_dir: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
-CODE_DIR=$(grep "code_dir:" "$CONFIG_FILE" | sed 's/.*code_dir: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
+PATIENT_ID=$(grep "^patient_id:" "$CONFIG_FILE" | sed 's/patient_id: *"\?\([^"]*\)"\?/\1/' | tr -d '"' | xargs)
+OUTPUT_BASE=$(grep "base_dir:" "$CONFIG_FILE" | sed 's/.*base_dir: *"\?\([^"]*\)"\?/\1/' | tr -d '"' | xargs)
+CODE_DIR=$(grep "code_dir:" "$CONFIG_FILE" | sed 's/.*code_dir: *"\?\([^"]*\)"\?/\1/' | tr -d '"' | xargs)
 
 # Extract HPC configuration
-PARTITION=$(grep -A10 "^hpc:" "$CONFIG_FILE" | grep "partition:" | head -1 | sed 's/.*partition: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
-CPUS=$(grep -A10 "^hpc:" "$CONFIG_FILE" | grep "cpus_per_task:" | head -1 | sed 's/.*cpus_per_task: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
-MEMORY=$(grep -A10 "^hpc:" "$CONFIG_FILE" | grep "memory:" | head -1 | sed 's/.*memory: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
-JOB_NAME=$(grep -A10 "^hpc:" "$CONFIG_FILE" | grep "job_name:" | head -1 | sed 's/.*job_name: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
+PARTITION=$(grep -A10 "^hpc:" "$CONFIG_FILE" | grep "partition:" | head -1 | sed 's/.*partition: *"\?\([^"]*\)"\?/\1/' | tr -d '"' | xargs)
+CPUS=$(grep -A10 "^hpc:" "$CONFIG_FILE" | grep "cpus_per_task:" | head -1 | sed 's/.*cpus_per_task: *"\?\([^"]*\)"\?/\1/' | tr -d '"' | xargs)
+MEMORY=$(grep -A10 "^hpc:" "$CONFIG_FILE" | grep "memory:" | head -1 | sed 's/.*memory: *"\?\([^"]*\)"\?/\1/' | tr -d '"' | xargs)
+JOB_NAME=$(grep -A10 "^hpc:" "$CONFIG_FILE" | grep "job_name:" | head -1 | sed 's/.*job_name: *"\?\([^"]*\)"\?/\1/' | tr -d '"' | xargs)
 
 # Set defaults if not found
 PARTITION=${PARTITION:-"pool1"}
