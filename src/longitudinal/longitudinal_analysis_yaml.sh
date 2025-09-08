@@ -1,50 +1,68 @@
 #!/bin/bash
-# Longitudinal cancer evolution analysis using YAML configuration
-# Usage: sbatch longitudinal_analysis_yaml.sh <config_yaml_file> [additional_flags] [slurm_log_suffix]
+# YAML Parser and SLURM Submission Script for Unified Longitudinal Analysis
+# This script parses YAML configuration and submits job to SLURM
+# Usage: bash longitudinal_analysis_yaml.sh <config_yaml_file> [additional_flags]
 
 set -e
 
 # --- Argument Parsing and Validation ---
-if [ "$#" -lt 1 ] || [ "$#" -gt 3 ]; then
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
     echo "Error: Incorrect number of arguments."
-    echo "Usage: sbatch $0 <config_yaml_file> [additional_flags] [slurm_log_suffix]"
+    echo "Usage: $0 <config_yaml_file> [additional_flags]"
     echo ""
     echo "Examples:"
-    echo "  sbatch $0 configs/cruk0044_longitudinal.yaml"
-    echo "  sbatch $0 configs/cruk0044_longitudinal.yaml '--debug'"
-    echo "  sbatch $0 configs/cruk0044_longitudinal.yaml '--debug --no-plots' 'test_run'"
+    echo "  bash $0 configs/templates/longitudinal_minimal.yaml"
+    echo "  bash $0 configs/templates/longitudinal_minimal.yaml '--debug'"
     echo ""
     echo "Configuration files should be in YAML format with all required parameters."
-    echo "The code directory is now specified in the YAML config file."
-    echo "Uses unified longitudinal pipeline (v3.0) - handles all marker selection approaches"
+    echo "Uses unified longitudinal pipeline (v3.0)"
     exit 1
 fi
 
 CONFIG_FILE=$1
 ADDITIONAL_FLAGS=${2:-""} # Optional additional flags like --debug, --no-plots
-LOG_SUFFIX=${3:-""} # Optional suffix for log files
 
-# Validate required input files and directories
+# --- Validate Configuration File ---
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "Error: Configuration file '$CONFIG_FILE' not found."
     exit 1
 fi
 
-# Extract key parameters from config for validation and logging setup
-# This is a simple extraction - the Python script will do full validation
+# Convert to absolute path
+if [[ ! "$CONFIG_FILE" = /* ]]; then
+    CONFIG_FILE="$(pwd)/${CONFIG_FILE}"
+    echo "Converted config file path to absolute: ${CONFIG_FILE}"
+fi
+
+echo "=== Longitudinal Analysis YAML Parser ==="
+echo "Configuration file: $CONFIG_FILE"
+echo "Additional flags: $ADDITIONAL_FLAGS"
+
+# --- Extract Parameters from YAML ---
+echo "Parsing YAML configuration..."
+
+# Extract basic parameters
 PATIENT_ID=$(grep "^patient_id:" "$CONFIG_FILE" | sed 's/patient_id: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
 OUTPUT_BASE=$(grep "base_dir:" "$CONFIG_FILE" | sed 's/.*base_dir: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
 CODE_DIR=$(grep "code_dir:" "$CONFIG_FILE" | sed 's/.*code_dir: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
+
+# Extract HPC configuration
+PARTITION=$(grep -A10 "^hpc:" "$CONFIG_FILE" | grep "partition:" | head -1 | sed 's/.*partition: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
+CPUS=$(grep -A10 "^hpc:" "$CONFIG_FILE" | grep "cpus_per_task:" | head -1 | sed 's/.*cpus_per_task: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
+MEMORY=$(grep -A10 "^hpc:" "$CONFIG_FILE" | grep "memory:" | head -1 | sed 's/.*memory: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
+JOB_NAME=$(grep -A10 "^hpc:" "$CONFIG_FILE" | grep "job_name:" | head -1 | sed 's/.*job_name: *"\?\([^"]*\)"\?/\1/' | tr -d '"')
+
+# Set defaults if not found
+PARTITION=${PARTITION:-"pool1"}
+CPUS=${CPUS:-"2"}
+MEMORY=${MEMORY:-"16G"}
+JOB_NAME=${JOB_NAME:-"longitudinal_analysis"}
 
 # Expand tilde paths
 OUTPUT_BASE="${OUTPUT_BASE/#\~/$HOME}"
 CODE_DIR="${CODE_DIR/#\~/$HOME}"
 
-if [ ! -d "$CODE_DIR" ]; then
-    echo "Error: Code directory '$CODE_DIR' (from config) not found."
-    exit 1
-fi
-
+# --- Validation ---
 if [ -z "$PATIENT_ID" ]; then
     echo "Error: Could not extract patient_id from config file."
     exit 1
@@ -60,97 +78,59 @@ if [ -z "$CODE_DIR" ]; then
     exit 1
 fi
 
-# No analysis mode validation needed - unified pipeline handles both approaches
-
-echo "--- Longitudinal YAML Analysis Script v3.0 Start ---"
-echo "Configuration file: $CONFIG_FILE"
-echo "Patient ID: $PATIENT_ID"
-echo "Code directory: $CODE_DIR (from config)"
-echo "Output base directory: $OUTPUT_BASE"
-echo "Additional flags: $ADDITIONAL_FLAGS"
-
-# Load Gurobi module
-echo "Loading Gurobi 11.0.2 module..."
-module load gurobi1102
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to load gurobi1102 module. Exiting."
+if [ ! -d "$CODE_DIR" ]; then
+    echo "Error: Code directory '$CODE_DIR' (from config) not found."
     exit 1
 fi
-echo "Gurobi module loaded successfully."
 
-# --- Setup log directory ---
-# Create logs directory in the output base directory
+# --- Display Configuration ---
+echo "Parsed Configuration:"
+echo "  Patient ID: $PATIENT_ID"
+echo "  Code directory: $CODE_DIR"
+echo "  Output base directory: $OUTPUT_BASE"
+echo "  HPC Settings:"
+echo "    Partition: $PARTITION"
+echo "    CPUs: $CPUS"
+echo "    Memory: $MEMORY"
+echo "    Job name: ${PATIENT_ID}_${JOB_NAME}"
+
+# --- Locate SLURM Execution Script ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+SLURM_SCRIPT="${SCRIPT_DIR}/longitudinal_slurm.sh"
+
+if [ ! -f "$SLURM_SCRIPT" ]; then
+    echo "Error: SLURM execution script not found at $SLURM_SCRIPT"
+    exit 1
+fi
+
+# --- Setup Output Directory and Logs ---
+mkdir -p "${OUTPUT_BASE}"
 LOG_DIR="${OUTPUT_BASE}/logs"
 mkdir -p "${LOG_DIR}"
 
-echo "--- Unified Longitudinal Analysis Script v3.0 Execution ---"
-echo "Job ID: $SLURM_JOB_ID"
-echo "Configuration file: $CONFIG_FILE"
-echo "Patient ID: $PATIENT_ID"
-echo "Code directory: $CODE_DIR"
-echo "Output base directory: $OUTPUT_BASE"
-echo "Additional flags: $ADDITIONAL_FLAGS"
-echo "---------------------------------------"
+# --- Submit to SLURM ---
+echo "Submitting job to SLURM..."
 
-# --- Environment Setup ---
-echo "Using conda environment mase_phi_hpc..."
-cd "$CODE_DIR"
+JOB_ID=$(sbatch --parsable \
+    --job-name="${PATIENT_ID}_${JOB_NAME}" \
+    --partition="$PARTITION" \
+    --cpus-per-task="$CPUS" \
+    --mem="$MEMORY" \
+    --time="02:00:00" \
+    --output="${LOG_DIR}/longitudinal_${PATIENT_ID}_%j.out" \
+    --error="${LOG_DIR}/longitudinal_${PATIENT_ID}_%j.err" \
+    "$SLURM_SCRIPT" "$CONFIG_FILE" "$ADDITIONAL_FLAGS")
 
-# Verify Gurobi is accessible from Python
-echo "Verifying Gurobi is accessible from Python..."
-conda run -n mase_phi_hpc python -c "import gurobipy; print(f'Gurobi version: {gurobipy.gurobi.version()}')"
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to import gurobipy or access Gurobi."
-    exit 1
-fi
-echo "Gurobi verification successful."
-
-# Verify required Python packages
-echo "Verifying required Python packages..."
-conda run -n mase_phi_hpc python -c "import pandas, numpy, matplotlib, yaml; print('Core packages: OK')"
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to import required Python packages."
-    exit 1
-fi
-echo "Python package verification successful."
-
-# --- Script Execution ---
-LONGITUDINAL_SCRIPT_PATH="${CODE_DIR}/src/longitudinal/longitudinal_main.py"
-
-echo "DEBUG: Longitudinal script path: $LONGITUDINAL_SCRIPT_PATH"
-echo "DEBUG: Script exists: $(ls -la "$LONGITUDINAL_SCRIPT_PATH" 2>/dev/null || echo "NOT FOUND")"
-
-if [ ! -f "$LONGITUDINAL_SCRIPT_PATH" ]; then
-    echo "Error: Longitudinal analysis Python script not found at $LONGITUDINAL_SCRIPT_PATH"
-    echo "Note: This script now uses longitudinal_main.py (v3.0 unified architecture)"
-    exit 1
-fi
-
-echo "Running unified longitudinal analysis with YAML configuration (v3.0)..."
-echo "Command: python $LONGITUDINAL_SCRIPT_PATH --config $CONFIG_FILE $ADDITIONAL_FLAGS"
-
-# Execute the Python script with YAML configuration
-conda run -n mase_phi_hpc python "$LONGITUDINAL_SCRIPT_PATH" --config "$CONFIG_FILE" $ADDITIONAL_FLAGS
-
-SCRIPT_EXIT_CODE=$?
-if [ $SCRIPT_EXIT_CODE -eq 0 ]; then
-    echo "Unified longitudinal analysis completed successfully for patient ${PATIENT_ID}."
+if [ $? -eq 0 ]; then
+    echo "Job submitted successfully!"
+    echo "  Job ID: $JOB_ID"
+    echo "  Patient: $PATIENT_ID"
+    echo "  Log files will be in: $LOG_DIR"
+    echo "  Monitor with: squeue -j $JOB_ID"
+    echo "  View output: tail -f ${LOG_DIR}/longitudinal_${PATIENT_ID}_${JOB_ID}.out"
 else
-    echo "Error: Unified longitudinal analysis failed for patient ${PATIENT_ID} with exit code $SCRIPT_EXIT_CODE."
-    exit $SCRIPT_EXIT_CODE 
+    echo "Error: Failed to submit job to SLURM"
+    exit 1
 fi
 
-# --- Output Summary ---
-echo "=== UNIFIED LONGITUDINAL ANALYSIS COMPLETED (v3.0) ==="
-echo "Patient: ${PATIENT_ID}"
-echo "Configuration: ${CONFIG_FILE}"
-echo "Results directory: ${OUTPUT_BASE}"
-echo "Logs directory: ${LOG_DIR}"
-echo ""
-echo "Key output files will be in subdirectories of: ${OUTPUT_BASE}"
-echo "  - longitudinal_pipeline/: Analysis results"
-echo "  - logs/: Detailed execution logs"
-echo "  - Comprehensive JSON tracking in results directory"
-echo ""
-echo "Primary SLURM job log is in the submission directory (slurm-$SLURM_JOB_ID.out)."
-echo "--- Unified Longitudinal Analysis Script v3.0 End ---" 
+echo "=== Longitudinal Analysis Submission Complete ==="
