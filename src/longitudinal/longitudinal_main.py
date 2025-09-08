@@ -23,6 +23,7 @@ from config_handler import parse_args, load_config, config_to_args, validate_inp
 from data_loader import load_tree_distributions, load_tissue_data_from_ssm, load_longitudinal_data_from_csv
 from longitudinal_pipeline import run_unified_longitudinal_analysis
 from output_manager import setup_logging, save_final_report
+from longitudinal_visualizer import create_unified_visualization_plots
 
 
 def main():
@@ -110,6 +111,18 @@ def main():
         # Generate final report
         logger.info("=== Generating Final Report ===")
         report_file = save_final_report(output_dir, args, results_summary, timepoint_data)
+        
+        # Generate visualization plots
+        logger.info("=== Generating Visualization Plots ===")
+        try:
+            visualization_files = create_unified_visualization_plots(
+                output_dir, args.patient_id, results_summary, timepoint_data, logger)
+            logger.info(f"Visualization plots created: {len(visualization_files)} files")
+            for viz_file in visualization_files:
+                logger.info(f"  - {viz_file}")
+        except Exception as e:
+            logger.error(f"Failed to generate visualization plots: {e}")
+            logger.warning("Continuing without visualization plots")
         
         logger.info(f"Analysis completed successfully")
         logger.info(f"Results saved to: {output_dir}")
