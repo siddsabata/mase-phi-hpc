@@ -1,0 +1,14 @@
+patient_id: "test_patient"
+
+input_files:
+  aggregation_dir: "/path/to/aggregation_results/"
+  ssm_file: "/path/to/ssm_filtered.txt"
+  longitudinal_data: "/path/to/liquid_biopsy.csv"
+  code_dir: "/Users/siddharthsabata/dev/research/mase-phi-hpc/"
+
+output:
+  base_dir: "/path/to/output/"
+
+parameters:
+  n_markers: 2
+  read_depth: 1500
