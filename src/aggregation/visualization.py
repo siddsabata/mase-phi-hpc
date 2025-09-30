@@ -253,27 +253,3 @@ def analyze_tree_distribution(tree_distribution, directory, patient_num, type, f
             print(f"Warning: Failed to copy best tree visualization to main directory: {e}")
     else:
         print(f"Warning: Best tree visualization not found for copying to main directory")
-
-
-def plot_mut_profile_comparison(tree_distribution, aggregated_results_file, directory, patient):
-    """
-    Plot mutation profile comparison across trees.
-    
-    This is a placeholder function for future mutation profile analysis.
-    Currently provides basic framework for comparison visualizations.
-    
-    Args:
-        tree_distribution (dict): Tree distribution data
-        aggregated_results_file (str): Path to aggregated results file
-        directory (Path): Output directory
-        patient (str): Patient identifier
-    """
-    # Placeholder implementation for mutation profile comparison
-    print(f"Mutation profile comparison for patient {patient} - functionality to be implemented")
-    
-    # Future implementation would include:
-    # - Cross-tree mutation frequency analysis
-    # - Mutation co-occurrence patterns
-    # - Clonal evolution trajectory visualization
-    # - Statistical comparison of mutation profiles
-    pass

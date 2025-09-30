@@ -19,6 +19,10 @@ import copy
 import json
 import os
 
+"""
+Wald test (hypothesis testing) testing whether two VAF relationships 
+are expected with tree topology
+"""
 def wald_test(freq_hat_1, freq_hat_2, correction_rate, relation='ancestor', depth=100, alpha=0.05):
     '''
     return True if reject
@@ -41,7 +45,9 @@ def wald_test(freq_hat_1, freq_hat_2, correction_rate, relation='ancestor', dept
     else:
         return False, W, z
 
-
+"""
+Simulate clonal frequencies for testing and val. potentially remove. 
+"""
 def simulate_freq(tree, k, alpha=0.3, beta=0.3):
     ### need to rewrite
     freq_true = np.random.beta(alpha, beta, k)
@@ -57,7 +63,9 @@ def simulate_freq(tree, k, alpha=0.3, beta=0.3):
     return freq_sum
 
 
-# test block
+"""
+Calcualte Shannon entropy of tree distribution 
+"""
 def calculate_tree_entropy(tree_freq_list, rejected_tree_indices):
     tree_freq = np.array(tree_freq_list)
     if len(rejected_tree_indices) != 0:
@@ -67,7 +75,9 @@ def calculate_tree_entropy(tree_freq_list, rejected_tree_indices):
     entropy = - np.sum(tree_freq * np.log(tree_freq))
     return entropy
 
-
+"""
+Calculate square sum (1 - sum of squares) for measuring tree impurity
+"""
 def calculate_square_sum(tree_freq_list, rejected_tree_indices):
     tree_freq = np.array(tree_freq_list)
     if len(rejected_tree_indices) != 0:
@@ -80,6 +90,9 @@ def calculate_square_sum(tree_freq_list, rejected_tree_indices):
 
 # utility functions
 
+"""
+Reverse mapping mutation id -> node_id
+"""
 def mut2node(node_dict):
     mut2node_dict = {}
     for node, mut_list in node_dict.items():
@@ -88,6 +101,9 @@ def mut2node(node_dict):
     return mut2node_dict
 
 
+"""
+BFS of tree structure 
+"""
 def bfs_structure(tree):  # O(k)
     order = []
     root = find_root(tree)
@@ -103,6 +119,9 @@ def bfs_structure(tree):  # O(k)
                 q.append(child)
     return order
 
+"""
+BFS, but starting from a specific root 
+"""
 def bfs(root, tree):  #O(k)
     order = []
     q = deque([root])
@@ -117,6 +136,9 @@ def bfs(root, tree):  #O(k)
                 q.append(child)
     return order
 
+"""
+Find root node of a tree 
+"""
 def find_root(tree):
     non_root = []
     for item in tree.values():
@@ -125,7 +147,10 @@ def find_root(tree):
         if int(node) not in non_root:
             return int(node)
 
-
+"""
+Create ancestor-descendant matrix 
+a2d[i][j] = 1 if node i is ancestor of node j 
+"""
 def ancestor2descendant(tree):
     order = bfs_structure(tree)
     a2d = np.zeros((len(order), len(order)))
@@ -136,11 +161,15 @@ def ancestor2descendant(tree):
                 a2d[int(node)] += a2d[int(child)]
     return a2d
 
-
+"""
+Create child -> parent mapping
+"""
 def generate_cp(tree):
     return {int(c): int(p) for p in tree.keys() for c in tree[p]}  # child: parent
 
-
+"""
+Generate parent -> child tree structure
+"""
 def generate_tree(cp_tree):
     tree = {}
     for child, parent in cp_tree.items():
@@ -150,7 +179,9 @@ def generate_tree(cp_tree):
             tree[parent] = [child]
     return tree
 
-
+"""
+Alternative root finder
+"""
 def root_searching(tree):  # O(depth of tree) <= O(k)
     tree_cp = generate_cp(tree)
     start_node = list(tree_cp.keys())[0]
@@ -165,8 +196,9 @@ def root_searching(tree):  # O(depth of tree) <= O(k)
             return None
     return start_node
 
-
-### count ancestor-descendant relationships of all pairs of mutations
+"""
+Compute all ancestors for every mutation and every node in tree
+"""
 def find_all_ancestors(tree, node_dict):
     root = root_searching(tree)
     cp_tree = generate_cp(tree)
@@ -187,7 +219,10 @@ def find_all_ancestors(tree, node_dict):
             ancestors_dict.setdefault(mut, mut_anc)
     return ancestors_dict, ancestors_node_dict
 
-
+"""
+Create binary matrix R encoding ancestor-descendant relationships between mutations
+n_muts x n_muts 
+"""
 def create_ancestor_descendant_matrix(tree, node_dict, gene2idx):
     ancestors_dict, ancestors_node_dict = find_all_ancestors(tree, node_dict)
     num_muts = len(ancestors_dict.keys())
@@ -199,7 +234,10 @@ def create_ancestor_descendant_matrix(tree, node_dict, gene2idx):
             anc_des_matrix[index] += 1
     return anc_des_matrix
 
-
+"""
+Create binary matrix indicating which mutations belong to the same clone 
+Used in fraction based optimization - encoding co-occurence relationships 
+"""
 def create_same_clone_matrix(tree, node_dict, gene2idx):
     root = root_searching(tree)
     order = bfs(root, tree)
@@ -214,10 +252,17 @@ def create_same_clone_matrix(tree, node_dict, gene2idx):
                     sam_clo_matrix[idx] = 1
     return sam_clo_matrix
 
-
+"""
+Shannon entropy for each column of matrix 
+"""
 def calculate_entropy(matrix):
     return -np.sum(matrix * np.log(matrix, out=np.zeros_like(matrix), where=(matrix != 0)), axis=0)
 
+
+"""
+Create comprehensive relationship probability matrix across all tree structures 
+Probabilistic encoding of all possible gene pair relationships across bootstraps
+"""
 def calculate_relation_matrix(tree_list, node_list, gene2idx,  tree_freq_list=None):
     num_tree = len(tree_list)
     if tree_freq_list is None:
@@ -241,11 +286,18 @@ def calculate_relation_matrix(tree_list, node_list, gene2idx,  tree_freq_list=No
                                       no_rel_matrix_sum[np.newaxis, :] / sum_tree_freq), axis=0)
     return full_matrix_sum
 
+"""
+Calculates uncertainty measure for pairwise gene relationships
+"""
 def calculate_pairwise_uncertainty(full_matrix_sum, method='entropy'):
     if method == 'entropy':
         return calculate_entropy(full_matrix_sum)
 
-
+"""
+Convert tree structure to adjacency matrix E (parent-child relationships)
+[k x k] where k = number of clones 
+Parent-child edge; E[parent][child] = 1
+"""
 def tree2E(tree, k):
     E = np.zeros((k, k))
     for parent, children_list in tree.items():
@@ -255,7 +307,9 @@ def tree2E(tree, k):
             E[p, c] = 1
     return E
 
-
+"""
+Create list of E matricies for multiple bootstrap trees
+"""
 def tree2E_list(tree_list, k_list):
     E_list = []
     for idx, (tree, k) in enumerate(zip(tree_list, k_list)):
@@ -263,7 +317,9 @@ def tree2E_list(tree_list, k_list):
         E_list.append(E)
     return E_list
 
-
+"""
+Creates mutation assignment matricies M mapping genes -> clones
+"""
 def create_M(node_dict, gene2idx, N):
     num_node = len(node_dict.keys())+1
     M = np.zeros((num_node, N))
@@ -274,6 +330,9 @@ def create_M(node_dict, gene2idx, N):
             M[n, m] = 1
     return M
 
+"""
+Create M for multiple bootstrap trees
+"""
 def create_M_list(node_list, gene2idx, N):
     M_list = []
     for idx, node_dict in enumerate(node_list):
@@ -282,6 +341,9 @@ def create_M_list(node_list, gene2idx, N):
         M_list.append(M)
     return M_list
 
+"""
+Creates list of clone counts for all bootstrap trees
+"""
 def create_k_list(node_list):
     k_list = []
     for node_dict in node_list:
@@ -289,7 +351,10 @@ def create_k_list(node_list):
         k_list.append(num_node)
     return k_list
 
-
+"""
+Calculates total (F) and private (F_hat) clonal frequencies for specific tree
+F_hat is the "clonal frequency" we think about when looking at a tree
+"""
 def calculate_F_Fhat(clonal_freq, tree_dict, sample_idx=0):
     node_num = len(clonal_freq.keys())
     F = np.zeros((node_num))
@@ -301,6 +366,10 @@ def calculate_F_Fhat(clonal_freq, tree_dict, sample_idx=0):
         F_hat[node] = prev_blood
     return F, F_hat
 
+"""
+Calculates total (F) and private (F_hat) clonal frequencies for specific tree, 
+but from ddPCR data 
+"""
 def calculate_F_Fhat_from_pcr(clonal_freq_actual, tree_dict, total_node_num):
     F = np.zeros((total_node_num))
     F_hat = np.zeros((total_node_num))
@@ -319,6 +388,9 @@ def calculate_F_Fhat_from_pcr(clonal_freq_actual, tree_dict, total_node_num):
         F_hat[node] = prev_blood
     return F, F_hat
 
+"""
+Create clonal frequency lists for all bootstrap trees
+"""
 def create_F_F_hat_list(clonal_freq_list, tree_list, sample_idx=0):
     F_list, F_hat_list = [], []
     for idx, (clonal_freq, tree_dict) in enumerate(zip(clonal_freq_list, tree_list)):
@@ -327,6 +399,9 @@ def create_F_F_hat_list(clonal_freq_list, tree_list, sample_idx=0):
         F_hat_list.append(F_hat)
     return F_list, F_hat_list
 
+"""
+Create clonal frequency lists (from ddPCR) for all bootstrap trees 
+"""
 def create_F_F_hat_list_from_pcr(clonal_freq_list_actual, tree_list, clonal_freq_list_origin):
     F_list, F_hat_list = [], []
     for idx, (clonal_freq, tree_dict) in enumerate(zip(clonal_freq_list_actual, tree_list)):

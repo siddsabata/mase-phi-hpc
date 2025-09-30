@@ -173,7 +173,7 @@ def main():
     tree_list, node_list, clonal_freq_list, tree_freq_list = (
         tree_distribution['tree_structure'], 
         tree_distribution['node_dict'],
-        tree_distribution['vaf_frac'],
+        tree_distribution['vaf_frac'], # NOTE: this could be wrong. trace the data. 
         tree_distribution['freq']
     )
 

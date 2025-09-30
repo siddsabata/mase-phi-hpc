@@ -5,6 +5,10 @@ import math
 
 ### use gurobi
 
+
+"""
+Create weighted sum of "same clone" matricies across all bootstrap trees
+"""
 def create_sum_same_clone(tree_list, node_list, gene2idx, tree_freq_list=None):
     num_tree = len(tree_list)
     if tree_freq_list is None:
@@ -20,7 +24,9 @@ def create_sum_same_clone(tree_list, node_list, gene2idx, tree_freq_list=None):
         sam_clo_matrix_sum += sam_clo_matrix * tree_freq_list[i]
     return sam_clo_matrix_sum
 
-
+"""
+Creates array of VAF values for specific gene in a tree
+"""
 def create_gene_fraction_array(tree, node_dict, clonal_freq, gene2idx, focus_sample_idx):
     gene_fraction = np.zeros(len(gene2idx))
     for node in tree:
@@ -31,7 +37,11 @@ def create_gene_fraction_array(tree, node_dict, clonal_freq, gene2idx, focus_sam
                 gene_fraction[idx] = clonal_freq[node][focus_sample_idx] 
     return gene_fraction
 
-
+"""
+Create F matrix [num_trees x num_genes]
+Row represents gene VAFs for a single tree 
+Used for optimization
+"""
 def create_concat_gene_fraction(tree_list, node_list, clonal_freq_list, gene2idx, tree_freq_list=None,focus_sample_idx=0):
     num_trees = len(tree_list)
     num_genes = len(gene2idx.keys())
@@ -47,11 +57,19 @@ def create_concat_gene_fraction(tree_list, node_list, clonal_freq_list, gene2idx
         gene_fraction_matrix[i] = gene_fraction_array
     return gene_fraction_matrix
 
-
+"""
+Calculate variance of gene VAF measurements 
+Takes read depth into account
+Assuming VAFs follow binomial distribution
+"""
 def create_gene_variance_matrix(gene_fraction_matrix, read_depth=10000):
     return read_depth * gene_fraction_matrix * (1-gene_fraction_matrix)
 
-
+"""
+Create R matrix [num_trees x num_genes x num_genes]
+Encoding structural relationships between genes 
+Used for optimization 
+"""
 def create_concat_relation_matrix(tree_list, node_list, gene2idx, tree_freq_list=None):
     num_tree = len(tree_list)
     num_gene = len(gene2idx.keys())
@@ -64,13 +82,24 @@ def create_concat_relation_matrix(tree_list, node_list, gene2idx, tree_freq_list
         relation_matrix_full[i, :, :] = create_ancestor_descendant_matrix(tree, node_dict, gene2idx)
     return relation_matrix_full
 
+"""
+Core optimization function
+"""
 def optimize_tree_distribution(F, R,  n_genes, n_markers, read_depth, lam1, lam2, tree_freq_list, subset_list=None):
+    # Set up model
     model = gp.Model('opt_tree')
+    
+    # Calculate variance matrix
     V_sqr = create_gene_variance_matrix(F, read_depth)
+
+    # number of bootstrap trees 
     n_trees = F.shape[0]
+
+    # tensor expansion: trees x genes along first two dims
     F_12 = F[:,:, np.newaxis]
+    # tensor expansion: genes x trees along last two dims 
     F_23 = np.transpose(F)[np.newaxis, :]
-    #print(F_12.shape, F_23.shape)
+    # tensor expansion: 
     V_sqr_12 = V_sqr[:,:, np.newaxis]
     V_sqr_23 = np.transpose(V_sqr)[np.newaxis, :]
     frac_diff_matrix = F_12 - F_23
