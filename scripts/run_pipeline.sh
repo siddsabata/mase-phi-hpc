@@ -20,20 +20,22 @@ fi
 
 CONFIG_FILE=$1
 
-# --- Get script directory for absolute paths ---
+# --- Get script directory and repo root for absolute paths ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." &>/dev/null && pwd)"
 echo "Pipeline script directory: ${SCRIPT_DIR}"
+echo "Repository root: ${REPO_ROOT}"
+
+# Convert to absolute path if needed (resolve relative to repo root)
+if [[ ! "$CONFIG_FILE" = /* ]]; then
+  CONFIG_FILE="${REPO_ROOT}/${CONFIG_FILE}"
+  echo "Converted config file path to absolute: ${CONFIG_FILE}"
+fi
 
 # --- Validate Configuration File ---
 if [ ! -f "$CONFIG_FILE" ]; then
   echo "Error: Configuration file not found: $CONFIG_FILE"
   exit 1
-fi
-
-# Convert to absolute path
-if [[ ! "$CONFIG_FILE" = /* ]]; then
-  CONFIG_FILE="${SCRIPT_DIR}/${CONFIG_FILE}"
-  echo "Converted config file path to absolute: ${CONFIG_FILE}"
 fi
 
 # --- Load Configuration Using Python ---
@@ -51,29 +53,34 @@ fi
 source "$TEMP_VARS_FILE"
 rm -f "$TEMP_VARS_FILE"
 
+# --- Auto-derive CODE_DIR if not specified (defaults to REPO_ROOT) ---
+if [ -z "$CODE_DIR" ]; then
+  CODE_DIR="$REPO_ROOT"
+  echo "CODE_DIR not specified in config, using repository root: $CODE_DIR"
+fi
+
 # --- Validate Required Configuration ---
-if [ -z "$PATIENT_ID" ] || [ -z "$INPUT_SSM_FILE" ] || [ -z "$CODE_DIR" ] || [ -z "$PATIENT_BASE_DIR" ]; then
+if [ -z "$PATIENT_ID" ] || [ -z "$INPUT_SSM_FILE" ] || [ -z "$PATIENT_BASE_DIR" ]; then
   echo "Error: Missing required configuration parameters:"
   echo "  PATIENT_ID: '$PATIENT_ID'"
   echo "  INPUT_SSM_FILE: '$INPUT_SSM_FILE'"
-  echo "  CODE_DIR: '$CODE_DIR'"
   echo "  PATIENT_BASE_DIR: '$PATIENT_BASE_DIR'"
   exit 1
 fi
 
-# --- Convert Paths to Absolute ---
+# --- Convert Paths to Absolute (relative to repo root) ---
 if [[ ! "$INPUT_SSM_FILE" = /* ]]; then
-  INPUT_SSM_FILE="${SCRIPT_DIR}/${INPUT_SSM_FILE}"
+  INPUT_SSM_FILE="${REPO_ROOT}/${INPUT_SSM_FILE}"
   echo "Converted input SSM file path to absolute: ${INPUT_SSM_FILE}"
 fi
 
 if [[ ! "$CODE_DIR" = /* ]]; then
-  CODE_DIR="${SCRIPT_DIR}/${CODE_DIR}"
+  CODE_DIR="${REPO_ROOT}/${CODE_DIR}"
   echo "Converted code directory path to absolute: ${CODE_DIR}"
 fi
 
 if [[ ! "$PATIENT_BASE_DIR" = /* ]]; then
-  PATIENT_BASE_DIR="${SCRIPT_DIR}/${PATIENT_BASE_DIR}"
+  PATIENT_BASE_DIR="${REPO_ROOT}/${PATIENT_BASE_DIR}"
   echo "Converted patient base directory path to absolute: ${PATIENT_BASE_DIR}"
 fi
 

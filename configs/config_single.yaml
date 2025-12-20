@@ -4,7 +4,6 @@ patient_id: "cruk0044"
 # Input files and directories - UPDATE THESE PATHS FOR YOUR ENVIRONMENT
 input:
   ssm_file: "/home/ssabata/cruk0044_data/ssm.txt"
-  code_dir: "/home/ssabata/mase-phi-hpc/"  
 
 # Output configuration
 output:
