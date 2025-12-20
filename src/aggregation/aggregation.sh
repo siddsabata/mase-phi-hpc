@@ -1,14 +1,14 @@
 #!/bin/bash
 # Aggregates PhyloWGS results from multiple bootstrap samples
-# Usage: sbatch aggregation.sh <patient_id> <bootstrap_parent_directory> <output_directory> <code_directory>
+# Usage: sbatch aggregation.sh <patient_id> <bootstrap_parent_directory> <output_directory> <code_directory> [num_bootstraps]
 
 set -e
 
 # --- Argument Parsing and Validation ---
-if [ "$#" -ne 4 ]; then
+if [ "$#" -lt 4 ] || [ "$#" -gt 5 ]; then
     echo "Error: Incorrect number of arguments."
-    echo "Usage: sbatch $0 <patient_id> <bootstrap_parent_directory> <output_directory> <code_directory>"
-    echo "Example: sbatch $0 CRUK0001 /path/to/data/initial/bootstraps /path/to/data/initial/aggregation_results /path/to/tracerx-mp"
+    echo "Usage: sbatch $0 <patient_id> <bootstrap_parent_directory> <output_directory> <code_directory> [num_bootstraps]"
+    echo "Example: sbatch $0 CRUK0001 /path/to/data/initial/bootstraps /path/to/data/initial/aggregation_results /path/to/tracerx-mp 100"
     exit 1
 fi
 
@@ -16,7 +16,7 @@ PATIENT_ID=$1
 BOOTSTRAP_PARENT_DIR=$2 # This is the directory containing bootstrapN folders
 OUTPUT_DIR=$3           # Explicit output directory for aggregation results
 CODE_DIR=$4
-NUM_BOOTSTRAPS=100      # Hardcoded as per previous request
+NUM_BOOTSTRAPS=${5:-100} # Default to 100 if not provided
 
 # --- Validate Input Directories ---
 if [ ! -d "$BOOTSTRAP_PARENT_DIR" ]; then
@@ -35,7 +35,7 @@ echo "Patient ID: ${PATIENT_ID}"
 echo "Bootstrap Parent Directory: ${BOOTSTRAP_PARENT_DIR}"
 echo "Output Directory: ${OUTPUT_DIR}"
 echo "Code Directory: ${CODE_DIR}"
-echo "Number of Bootstraps (hardcoded): ${NUM_BOOTSTRAPS}"
+echo "Number of Bootstraps: ${NUM_BOOTSTRAPS}"
 echo "---------------------------------------"
 
 # --- Environment Setup ---

@@ -187,23 +187,49 @@ class LongitudinalTracker:
     def _calculate_clonal_frequency_changes(self, update_tracking_data: Dict) -> tuple:
         """
         Calculate before and after clonal frequencies for tracking.
-        
+
+        Handles two formats:
+        1. New format: 'clone_frequencies' dict from paper's algorithm
+        2. Legacy format: 'clonal_freq_list' list per tree
+
         Args:
             update_tracking_data: Update tracking data containing clonal frequencies
-            
+
         Returns:
             Tuple of (clonal_freq_before, clonal_freq_after) dictionaries
         """
-        clonal_freq_list = update_tracking_data['clonal_freq_list']
+        # Check for new format (paper's algorithm output)
+        if 'clone_frequencies' in update_tracking_data:
+            # New format: direct clone_id -> frequency dict from ddPCR
+            # This is computed using paper's algorithm at this timepoint
+            clone_freqs = update_tracking_data['clone_frequencies']
+
+            # Convert to string keys for JSON serialization
+            clonal_freq_after = {
+                f'clone_{clone_id}': float(freq)
+                for clone_id, freq in clone_freqs.items()
+            }
+
+            # For 'before', we don't have previous values in new format
+            # Return empty dict or previous timepoint's values
+            clonal_freq_before = {}
+
+            return clonal_freq_before, clonal_freq_after
+
+        # Legacy format: clonal_freq_list
+        clonal_freq_list = update_tracking_data.get('clonal_freq_list', [])
+        if not clonal_freq_list:
+            return {}, {}
+
         tree_freq_before = update_tracking_data['tree_frequencies_before']
         tree_freq_after = update_tracking_data['tree_frequencies_after']
-        
+
         # Calculate weighted average clonal frequencies before and after
         clonal_freq_before = self._calculate_weighted_clonal_frequencies(
             clonal_freq_list, tree_freq_before)
         clonal_freq_after = self._calculate_weighted_clonal_frequencies(
             clonal_freq_list, tree_freq_after)
-        
+
         return clonal_freq_before, clonal_freq_after
     
     def _calculate_weighted_clonal_frequencies(self, clonal_freq_list: List[Dict], 

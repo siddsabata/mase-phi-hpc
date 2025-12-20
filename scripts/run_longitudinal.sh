@@ -7,5 +7,9 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --partition=pool1
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CODE_DIR="$(dirname "$SCRIPT_DIR")"
+
 # Run longitudinal analysis
-conda run -n mase_phi_hpc python /home/ssabata/mase-phi-hpc/src/longitudinal/longitudinal_main.py --config "$1"
+conda run -n mase_phi_hpc python "${CODE_DIR}/src/longitudinal/longitudinal_main.py" --config "$1"

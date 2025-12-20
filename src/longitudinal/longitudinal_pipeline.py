@@ -19,10 +19,14 @@ from typing import Dict, List, Tuple, Any
 
 # Import our corrected modules
 from tree_updater import (
-    process_ddpcr_measurements, 
+    process_ddpcr_measurements,
     update_tree_distribution
 )
 from longitudinal_tracker import LongitudinalTracker
+from clone_frequency import (
+    compute_clone_frequencies_from_ddpcr,
+    convert_ddpcr_to_vaf_df
+)
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +114,19 @@ def run_unified_longitudinal_analysis(args, logger: logging.Logger,
             updated_tree_summary, update_tracking_data = update_tree_distribution(
                 current_tree_summary, ddpcr_marker_counts, read_depth_list, marker_idx2gene, logger)
             
-            # Step 4: Add comprehensive tracking data
+            # Step 4: Compute clone frequencies using paper's algorithm
+            # Formula: clone_freq = mean(VAF of markers) - sum(child clone frequencies)
+            logger.info("Step 4: Computing clone frequencies using paper's algorithm")
+
+            clone_frequencies = compute_clone_frequencies_from_ddpcr(
+                updated_tree_summary, current_ddpcr_data, timepoint
+            )
+            logger.info(f"Computed clone frequencies for {len(clone_frequencies)} clones")
+
+            # Add clone frequencies to tracking data
+            update_tracking_data['clone_frequencies'] = clone_frequencies
+
+            # Step 5: Add comprehensive tracking data
             tracker.add_timepoint_update(
                 timepoint=timepoint,
                 order_idx=order_idx,
@@ -119,26 +135,24 @@ def run_unified_longitudinal_analysis(args, logger: logging.Logger,
                 selected_markers=selected_markers  # The markers used for THIS timepoint's tree update
             )
             
-            # Step 5: Save updated tree distribution for next iteration
+            # Step 6: Save updated tree distribution for next iteration
             updated_tree_file = pipeline_dir / f'tree_distribution_updated_timepoint_{order_idx}.pkl'
             with open(updated_tree_file, 'wb') as f:
                 pickle.dump(updated_tree_summary, f)
-            
+
             logger.info(f"Saved updated tree distribution: {updated_tree_file}")
-            
-            # Step 6: Update clonal frequency list for next iteration
-            # (Already obtained from update_tracking_data in Step 3)
             
             # Store results for this timepoint
             timepoint_result = {
                 'timepoint': timepoint,
                 'order_idx': order_idx,
                 'selected_markers': selected_markers,
+                'clone_frequencies': clone_frequencies,  # Paper's algorithm results
                 'tree_update_summary': {
                     'entropy_change': update_tracking_data['entropy_change'],
                     'significant_changes': len([i for i, (old, new) in enumerate(
-                        zip(update_tracking_data['tree_frequencies_before'], 
-                            update_tracking_data['tree_frequencies_after'])) 
+                        zip(update_tracking_data['tree_frequencies_before'],
+                            update_tracking_data['tree_frequencies_after']))
                                                if abs(old - new) > 1.0])
                 },
                 'updated_tree_file': str(updated_tree_file)

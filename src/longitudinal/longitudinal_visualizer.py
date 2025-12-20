@@ -197,12 +197,18 @@ def create_marker_selection_evolution_plot(patient_id: str, viz_dir: Path,
     
     for tp_data in timepoints:
         timepoint_names.append(tp_data['timepoint'])
-        
-        # Get markers from both optimization strategies
-        marker_sel = tp_data['marker_selection']
-        fraction_markers.append(marker_sel['fraction_optimization']['markers'])
-        structure_markers.append(marker_sel['structure_optimization']['markers'])
-        selected_markers.append(tp_data['selected_markers'])
+
+        # Get markers from both optimization strategies (if available)
+        marker_sel = tp_data.get('marker_selection', {})
+        if marker_sel:
+            fraction_markers.append(marker_sel.get('fraction_optimization', {}).get('markers', []))
+            structure_markers.append(marker_sel.get('structure_optimization', {}).get('markers', []))
+        else:
+            # No marker selection data - use selected_markers for both
+            sel_markers = tp_data.get('selected_markers', [])
+            fraction_markers.append(sel_markers)
+            structure_markers.append(sel_markers)
+        selected_markers.append(tp_data.get('selected_markers', []))
     
     # Create subplot figure
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(14, 12))
@@ -304,91 +310,133 @@ def create_marker_selection_evolution_plot(patient_id: str, viz_dir: Path,
 def create_clonal_frequency_evolution_plot(patient_id: str, viz_dir: Path,
                                          tracking_data: Dict, logger: logging.Logger) -> str:
     """
-    Create clonal frequency evolution plot showing how clone frequencies change over time.
-    
+    Create Figure 5(c) style clonal frequency evolution plot.
+
+    This implements the paper's visualization showing how each clone's frequency
+    changes over longitudinal timepoints. Clone frequencies are computed using
+    the paper's algorithm: clone_freq = mean(VAF) - sum(child frequencies).
+
+    Note: Negative frequencies are allowed per the paper (indicates measurement
+    imprecision when children have higher VAF than parent).
+
     Args:
         patient_id: Patient identifier
         viz_dir: Visualization directory
         tracking_data: Comprehensive tracking data
         logger: Logger instance
-        
+
     Returns:
         Path to created plot
     """
-    logger.info("Creating clonal frequency evolution plot")
-    
+    logger.info("Creating Figure 5(c) style clonal frequency evolution plot")
+
     timepoints = tracking_data['timepoints']
     if not timepoints:
         logger.warning("No timepoint data available for clonal frequency plot")
         return ""
-    
-    # Extract clonal frequency data
+
+    # Extract clonal frequency data from each timepoint
+    # New format: clone_frequencies is Dict[clone_id, frequency] from paper's algorithm
     clone_freq_data = []
-    
-    # Get initial clonal frequencies (calculate from initial tree distribution)
-    initial_tree_dist = tracking_data['initial_tree_distribution']
-    initial_clones = set()
-    for vaf_frac in initial_tree_dist['vaf_frac']:
-        initial_clones.update(vaf_frac.keys())
-    
-    # Add initial state
-    for clone in initial_clones:
-        clone_freq_data.append({
-            'timepoint': 'Initial',
-            'clone_id': f'clone_{clone}', 
-            'frequency': 0.0  # Would need to calculate from initial data
-        })
-    
-    # Add data for each timepoint
+    all_clones = set()
+
     for tp_data in timepoints:
-        clonal_freqs_before = tp_data['clonal_frequencies']['before']
-        clonal_freqs_after = tp_data['clonal_frequencies']['after']
-        
-        # Use 'after' frequencies for tracking evolution
-        for clone_id, frequency in clonal_freqs_after.items():
-            clone_freq_data.append({
-                'timepoint': tp_data['timepoint'],
-                'clone_id': clone_id,
-                'frequency': frequency
-            })
-    
+        timepoint_name = tp_data['timepoint']
+
+        # Get clone frequencies computed using paper's algorithm
+        # Format: {'clone_frequencies': {clone_id: frequency}}
+        tree_update = tp_data.get('tree_update', {})
+        clone_freqs = tree_update.get('clone_frequencies', {})
+
+        # Also check for old format in clonal_frequencies field
+        if not clone_freqs:
+            clonal_freqs = tp_data.get('clonal_frequencies', {})
+            clone_freqs = clonal_freqs.get('after', {})
+
+        if clone_freqs:
+            for clone_id, frequency in clone_freqs.items():
+                # Convert clone_id to string if needed
+                clone_id_str = f'Clone {clone_id}' if isinstance(clone_id, int) else str(clone_id)
+                all_clones.add(clone_id_str)
+                clone_freq_data.append({
+                    'timepoint': timepoint_name,
+                    'clone_id': clone_id_str,
+                    'frequency': float(frequency)
+                })
+
     if not clone_freq_data:
         logger.warning("No clonal frequency data to plot")
         return ""
-    
+
     df_clones = pd.DataFrame(clone_freq_data)
-    
-    plt.figure(figsize=(12, 8))
-    
+
+    # Get unique timepoints in order
+    timepoint_order = [tp['timepoint'] for tp in timepoints]
+
+    # Create Figure 5(c) style plot
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    # Use distinct colors for each clone
+    unique_clones = sorted(df_clones['clone_id'].unique())
+    num_clones = len(unique_clones)
+
+    # Use a colormap that's good for distinguishing lines
+    if num_clones <= 10:
+        colors = plt.cm.tab10(np.linspace(0, 1, num_clones))
+    else:
+        colors = plt.cm.tab20(np.linspace(0, 1, num_clones))
+
     # Plot each clone as a separate line
-    unique_clones = df_clones['clone_id'].unique()
-    colors = plt.cm.Set3(np.linspace(0, 1, len(unique_clones)))
-    
     for clone_idx, clone_id in enumerate(unique_clones):
         clone_data = df_clones[df_clones['clone_id'] == clone_id]
-        plt.plot(range(len(clone_data)), clone_data['frequency'],
-                marker='o', linewidth=2, markersize=6,
-                color=colors[clone_idx], label=clone_id)
-    
-    plt.xlabel('Timepoint', fontsize=12, fontweight='bold')
-    plt.ylabel('Clonal Frequency', fontsize=12, fontweight='bold')
-    plt.title(f'{patient_id} - Clonal Frequency Evolution Over Time', 
-              fontsize=14, fontweight='bold')
-    
+
+        # Get frequencies in timepoint order
+        freqs = []
+        x_positions = []
+        for tp_idx, tp_name in enumerate(timepoint_order):
+            tp_freq = clone_data[clone_data['timepoint'] == tp_name]['frequency']
+            if not tp_freq.empty:
+                freqs.append(tp_freq.iloc[0])
+                x_positions.append(tp_idx)
+
+        if freqs:
+            ax.plot(x_positions, freqs,
+                   marker='o', linewidth=2.5, markersize=8,
+                   color=colors[clone_idx], label=clone_id)
+
+    # Style the plot like Figure 5(c)
+    ax.set_xlabel('Days of sampling', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Clonal fractions', fontsize=12, fontweight='bold')
+    ax.set_title(f'{patient_id} - Clonal Evolution (Figure 5c style)',
+                fontsize=14, fontweight='bold')
+
     # Set x-axis labels
-    unique_timepoints = df_clones['timepoint'].unique()
-    plt.xticks(range(len(unique_timepoints)), unique_timepoints, rotation=45)
-    
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.grid(True, alpha=0.3)
+    ax.set_xticks(range(len(timepoint_order)))
+    ax.set_xticklabels(timepoint_order, rotation=45, ha='right')
+
+    # Add horizontal line at y=0 for reference (negative values possible)
+    ax.axhline(y=0, color='black', linestyle='-', linewidth=0.5, alpha=0.5)
+
+    # Add legend outside plot
+    ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=10)
+
+    # Grid for readability
+    ax.grid(True, alpha=0.3)
+
+    # Allow negative y-values (per paper - measurement imprecision)
+    y_min = df_clones['frequency'].min()
+    y_max = df_clones['frequency'].max()
+    y_margin = (y_max - y_min) * 0.1
+    ax.set_ylim(y_min - y_margin, y_max + y_margin)
+
     plt.tight_layout()
-    
+
     # Save plot
     plot_path = viz_dir / f'{patient_id}_clonal_frequency_evolution.png'
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
-    
-    logger.info(f"Saved clonal frequency evolution plot: {plot_path}")
+
+    logger.info(f"Saved Figure 5(c) style clonal frequency plot: {plot_path}")
     return str(plot_path)
 
 

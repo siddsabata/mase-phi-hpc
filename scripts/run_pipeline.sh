@@ -266,7 +266,7 @@ PHYLOWGS_JOB_ID=$(submit_job_yaml "phylowgs" "${BOOTSTRAP_JOB_ID}" \
 echo "Starting Aggregation Stage..."
 AGGREGATION_JOB_ID=$(submit_job_yaml "aggregation" "${PHYLOWGS_JOB_ID}" \
   "${CODE_DIR}/src/aggregation/aggregation.sh" \
-  "${PATIENT_ID}" "${BOOTSTRAPS_DATA_DIR}" "${AGGREGATION_RESULTS_DIR}" "${CODE_DIR}")
+  "${PATIENT_ID}" "${BOOTSTRAPS_DATA_DIR}" "${AGGREGATION_RESULTS_DIR}" "${CODE_DIR}" "${NUM_BOOTSTRAPS}")
 
 # Step 4: Marker Selection
 echo "Starting Marker Selection Stage..."
